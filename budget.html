@@ -405,11 +405,73 @@
     .chart-toggle-btn.active { background: var(--primary); color: #fff; }
     .chart-toggle-btn.active.income { background: var(--green); }
 
+    /* ─── Вкладки ─── */
+    .tabs {
+      display: flex;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 6px;
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      font-family: var(--font);
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: var(--text-gray);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; }
+
+    /* ─── Лимиты ─── */
+    .limit-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      margin-bottom: 24px;
+      align-items: end;
+    }
+    .limit-row { margin-bottom: 4px; }
+    .limit-row-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .limit-label { font-size: 0.9rem; font-weight: 500; }
+    .limit-amounts { font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: center; gap: 6px; }
+    .limit-progress-wrap {
+      background: #e9edf2;
+      border-radius: 99px;
+      height: 9px;
+      overflow: hidden;
+      margin-bottom: 5px;
+    }
+    .limit-progress {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+    .limit-progress.ok   { background: var(--primary); }
+    .limit-progress.warn { background: #f59e0b; }
+    .limit-progress.over { background: var(--red); }
+    .limit-status { font-size: 0.78rem; font-weight: 600; }
+    .limit-status.ok   { color: var(--primary); }
+    .limit-status.warn { color: #f59e0b; }
+    .limit-status.over { color: var(--red); }
+
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
       .main-grid { grid-template-columns: 1fr; }
       .balance-row { gap: 28px; }
       .balance-amount { font-size: 2rem; }
+      .limit-form { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -430,6 +492,14 @@
       </div>
     </div>
   </div>
+
+  <!-- Вкладки -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-main"   onclick="switchTab('main')">Обзор</button>
+    <button class="tab-btn"        id="tab-limits" onclick="switchTab('limits')">Лимиты</button>
+  </div>
+
+  <div id="view-main">
 
   <!-- График по дням -->
   <div class="card chart-card">
@@ -527,6 +597,31 @@
 
   </div>
 
+  </div><!-- /view-main -->
+
+  <!-- Вкладка: Лимиты -->
+  <div id="view-limits" style="display:none">
+    <div class="card">
+      <h2>Лимиты по категориям</h2>
+
+      <div class="limit-form">
+        <div>
+          <label for="limit-category">Категория</label>
+          <select id="limit-category"></select>
+        </div>
+        <div>
+          <label for="limit-amount">Лимит (₽)</label>
+          <input type="number" id="limit-amount" min="1" step="1" placeholder="Сумма лимита">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn-primary" onclick="applyLimit()" style="margin-top:0">Установить</button>
+        </div>
+      </div>
+
+      <div id="limits-list"></div>
+    </div>
+  </div>
+
   <script>
     // ─── Данные ───────────────────────────────────────────────────────────────
 
@@ -547,6 +642,20 @@
     }
 
     let transactions = loadData();
+
+    // ─── Лимиты ───────────────────────────────────────────────────────────────
+
+    const LIMITS_KEY = 'budget_limits';
+
+    function loadLimits() {
+      try { return JSON.parse(localStorage.getItem(LIMITS_KEY)) || {}; }
+      catch { return {}; }
+    }
+    function saveLimits() {
+      localStorage.setItem(LIMITS_KEY, JSON.stringify(limits));
+    }
+
+    let limits = loadLimits();
 
     // ─── Вспомогательные ────────────────────────────────────────────────────
 
@@ -955,6 +1064,89 @@
       });
     }
 
+    // ─── Вкладки ─────────────────────────────────────────────────────────────
+
+    function switchTab(tab) {
+      document.getElementById('tab-main').classList.toggle('active', tab === 'main');
+      document.getElementById('tab-limits').classList.toggle('active', tab === 'limits');
+      document.getElementById('view-main').style.display   = tab === 'main'   ? '' : 'none';
+      document.getElementById('view-limits').style.display = tab === 'limits' ? '' : 'none';
+      if (tab === 'limits') renderLimits();
+    }
+
+    // ─── Функции лимитов ─────────────────────────────────────────────────────
+
+    function buildLimitCategorySelect() {
+      const custom = transactions
+        .filter(t => t.type === 'expense')
+        .map(t => t.category)
+        .filter(c => !CATEGORIES.expense.includes(c));
+      const all = [...CATEGORIES.expense, ...new Set(custom)];
+      const sel = document.getElementById('limit-category');
+      const cur = sel.value;
+      sel.innerHTML = all.map(c => `<option value="${escHtml(c)}"${c === cur ? ' selected' : ''}>${escHtml(c)}</option>`).join('');
+    }
+
+    function applyLimit() {
+      const cat = document.getElementById('limit-category').value;
+      const amt = parseFloat(document.getElementById('limit-amount').value);
+      if (!cat || !amt || amt <= 0) return;
+      limits[cat] = amt;
+      saveLimits();
+      document.getElementById('limit-amount').value = '';
+      renderLimits();
+    }
+
+    function deleteLimit(cat) {
+      delete limits[cat];
+      saveLimits();
+      renderLimits();
+    }
+
+    function renderLimits() {
+      buildLimitCategorySelect();
+      const cm = currentMonth();
+      const spending = {};
+      transactions
+        .filter(t => t.type === 'expense' && monthKey(t.date) === cm)
+        .forEach(t => { spending[t.category] = (spending[t.category] || 0) + t.amount; });
+
+      const container = document.getElementById('limits-list');
+      const entries = Object.entries(limits);
+
+      if (entries.length === 0) {
+        container.innerHTML = '<p style="font-size:0.88rem;color:var(--text-gray);padding:12px 0">Лимиты не заданы. Выберите категорию и укажите сумму выше.</p>';
+        return;
+      }
+
+      container.innerHTML = entries.map(([cat, lim], i) => {
+        const spent = spending[cat] || 0;
+        const real  = lim > 0 ? Math.round(spent / lim * 100) : 0;
+        const pct   = Math.min(real, 100);
+        const state = real >= 100 ? 'over' : real >= 80 ? 'warn' : 'ok';
+        const left  = lim - spent;
+        const statusText = real >= 100
+          ? `⚠ Превышен на ${fmt(Math.abs(left))}`
+          : `Осталось ${fmt(left)}`;
+        return `
+          ${i > 0 ? '<div class="divider"></div>' : ''}
+          <div class="limit-row">
+            <div class="limit-row-header">
+              <span class="limit-label">${escHtml(cat)}</span>
+              <span class="limit-amounts">
+                ${fmt(spent)} / ${fmt(lim)}
+                <button class="btn-icon delete" onclick="deleteLimit('${escHtml(cat).replace(/'/g, '&#39;')}')" title="Удалить лимит">✕</button>
+              </span>
+            </div>
+            <div class="limit-progress-wrap">
+              <div class="limit-progress ${state}" style="width:${pct}%"></div>
+            </div>
+            <div class="limit-status ${state}">${statusText} (${real}%)</div>
+          </div>
+        `;
+      }).join('');
+    }
+
     // ─── Главный рендер ──────────────────────────────────────────────────────
 
     function render() {
@@ -978,6 +1170,7 @@
     document.getElementById('tx-date').value = today();
 
     buildCategorySelect();
+    buildLimitCategorySelect();
     render();
   </script>
 </body>
