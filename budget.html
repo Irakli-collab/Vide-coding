@@ -481,6 +481,80 @@
     .limit-status.warn { color: #f59e0b; }
     .limit-status.over { color: var(--red); }
 
+    /* ─── Отчёт ─── */
+    .report-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .report-header h2 { margin-bottom: 0; }
+
+    .report-toggle {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+    .report-btn {
+      padding: 6px 16px;
+      border: none;
+      background: #f8fafc;
+      color: var(--text-gray);
+      font-family: var(--font);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .report-btn:not(:last-child) { border-right: 1px solid #e2e8f0; }
+    .report-btn.active { background: var(--primary); color: #fff; }
+
+    .report-period-label {
+      font-size: 0.8rem;
+      color: var(--text-gray);
+      margin-bottom: 20px;
+    }
+
+    .report-summary {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .report-stat {
+      flex: 1;
+      background: #f8fafc;
+      border: 1px solid #edf2f7;
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .report-stat-label {
+      font-size: 0.73rem;
+      color: var(--text-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 6px;
+    }
+    .report-stat-value { font-size: 1.05rem; font-weight: 700; }
+    .report-stat-value.income-val  { color: var(--green); }
+    .report-stat-value.expense-val { color: var(--red); }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+    .report-col-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-gray);
+      margin-bottom: 12px;
+    }
+
     /* ─── Тёмная тема ─── */
     body.dark {
       --bg: #0f1117;
@@ -527,12 +601,19 @@
     body.dark .tabs { background: #1a1d2e; }
     body.dark .tab-btn { color: var(--text-gray); }
 
+    body.dark .report-toggle { border-color: #2e3347; }
+    body.dark .report-btn    { background: #252836; }
+    body.dark .report-btn:not(:last-child) { border-right-color: #2e3347; }
+    body.dark .report-stat   { background: #252836; border-color: #2a2d3e; }
+
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
-      .main-grid { grid-template-columns: 1fr; }
-      .balance-row { gap: 28px; }
+      .main-grid      { grid-template-columns: 1fr; }
+      .balance-row    { gap: 28px; }
       .balance-amount { font-size: 2rem; }
-      .limit-form { grid-template-columns: 1fr; }
+      .limit-form     { grid-template-columns: 1fr; }
+      .report-grid    { grid-template-columns: 1fr; }
+      .report-summary { flex-direction: column; }
     }
   </style>
 </head>
@@ -673,6 +754,25 @@
 
     </div>
 
+  </div>
+
+  <!-- Отчёт -->
+  <div class="card" style="margin-top:24px">
+    <div class="report-header">
+      <div>
+        <h2 style="margin-bottom:4px">Отчёт</h2>
+        <div class="report-period-label" id="report-period-label"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="report-toggle">
+          <button class="report-btn" id="report-btn-week"  onclick="setReportPeriod('week')">Неделя</button>
+          <button class="report-btn active" id="report-btn-month" onclick="setReportPeriod('month')">Месяц</button>
+          <button class="report-btn" id="report-btn-year"  onclick="setReportPeriod('year')">Год</button>
+        </div>
+        <button class="btn-icon" id="copy-report-btn" onclick="copyReport()" title="Копировать отчёт" style="font-size:1.1rem;padding:6px 8px">📋</button>
+      </div>
+    </div>
+    <div id="report-content"></div>
   </div>
 
   <script>
@@ -1009,7 +1109,8 @@
     // ─── График по дням ──────────────────────────────────────────────────────
 
     let dailyChart = null;
-    let chartMode  = 'expense'; // 'expense' | 'income'
+    let chartMode    = 'expense'; // 'expense' | 'income'
+    let reportPeriod = 'month';   // 'week' | 'month' | 'year'
 
     function setChartMode(mode) {
       chartMode = mode;
@@ -1206,6 +1307,162 @@
       }).join('');
     }
 
+    // ─── Отчёт ───────────────────────────────────────────────────────────────
+
+    function getPeriodRange(period) {
+      const now    = new Date();
+      const todayY = now.getFullYear();
+      const todayM = now.getMonth();
+      const todayD = now.getDate();
+      const pad    = n => String(n).padStart(2, '0');
+      const toStr  = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      const end    = new Date(todayY, todayM, todayD);
+      let start;
+
+      if (period === 'week') {
+        const dow   = end.getDay();
+        const back  = dow === 0 ? 6 : dow - 1;
+        start = new Date(todayY, todayM, todayD - back);
+      } else if (period === 'month') {
+        start = new Date(todayY, todayM, 1);
+      } else {
+        start = new Date(todayY, 0, 1);
+      }
+
+      const names = { week: 'Неделя', month: 'Месяц', year: 'Год' };
+      const label = `${names[period]}: ${fmtDate(toStr(start))} – ${fmtDate(toStr(end))}`;
+      return { startStr: toStr(start), endStr: toStr(end), label };
+    }
+
+    function setReportPeriod(period) {
+      reportPeriod = period;
+      ['week', 'month', 'year'].forEach(p =>
+        document.getElementById('report-btn-' + p).classList.toggle('active', p === period)
+      );
+      renderReport();
+    }
+
+    function buildCatHtml(txList, isIncome) {
+      if (txList.length === 0)
+        return '<p style="font-size:0.85rem;color:var(--text-gray)">Нет данных за период</p>';
+      const map = {};
+      txList.forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
+      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
+      const max    = sorted[0][1];
+      const total  = txList.reduce((s, t) => s + t.amount, 0);
+      return sorted.map(([cat, sum]) => {
+        const pct    = total > 0 ? Math.round(sum / total * 100) : 0;
+        const barCls = isIncome ? 'cat-bar income' : 'cat-bar';
+        return `
+          <div class="cat-row">
+            <div>
+              <div class="cat-label">${escHtml(cat)}</div>
+              <div class="cat-bar-wrap">
+                <div class="${barCls}" style="width:${Math.round(sum/max*100)}%"></div>
+              </div>
+            </div>
+            <div class="cat-amount">${fmt(sum)} <span style="font-weight:400;color:var(--text-gray)">(${pct}%)</span></div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderReport() {
+      const { startStr, endStr, label } = getPeriodRange(reportPeriod);
+      document.getElementById('report-period-label').textContent = label;
+
+      const txs     = transactions.filter(t => t.date >= startStr && t.date <= endStr);
+      const income  = txs.filter(t => t.type === 'income');
+      const expense = txs.filter(t => t.type === 'expense');
+
+      const totalIncome  = income.reduce((s, t)  => s + t.amount, 0);
+      const totalExpense = expense.reduce((s, t) => s + t.amount, 0);
+      const balance      = totalIncome - totalExpense;
+      const balSign      = balance >= 0 ? '+' : '−';
+      const balColor     = balance >= 0 ? 'var(--green)' : 'var(--red)';
+
+      document.getElementById('report-content').innerHTML = `
+        <div class="report-summary">
+          <div class="report-stat">
+            <div class="report-stat-label">Доходы</div>
+            <div class="report-stat-value income-val">${fmt(totalIncome)}</div>
+          </div>
+          <div class="report-stat">
+            <div class="report-stat-label">Расходы</div>
+            <div class="report-stat-value expense-val">${fmt(totalExpense)}</div>
+          </div>
+          <div class="report-stat">
+            <div class="report-stat-label">Баланс</div>
+            <div class="report-stat-value" style="color:${balColor}">${balSign}${fmt(Math.abs(balance))}</div>
+          </div>
+        </div>
+        <div class="report-grid">
+          <div>
+            <div class="report-col-title">Расходы по категориям</div>
+            ${buildCatHtml(expense, false)}
+          </div>
+          <div>
+            <div class="report-col-title">Доходы по категориям</div>
+            ${buildCatHtml(income, true)}
+          </div>
+        </div>`;
+    }
+
+    function copyReport() {
+      const { startStr, endStr, label } = getPeriodRange(reportPeriod);
+      const txs     = transactions.filter(t => t.date >= startStr && t.date <= endStr);
+      const income  = txs.filter(t => t.type === 'income');
+      const expense = txs.filter(t => t.type === 'expense');
+
+      const totalIncome  = income.reduce((s, t)  => s + t.amount, 0);
+      const totalExpense = expense.reduce((s, t) => s + t.amount, 0);
+      const balance      = totalIncome - totalExpense;
+
+      const aggregateCats = list => {
+        const map = {};
+        list.forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
+        return Object.entries(map).sort((a, b) => b[1] - a[1]);
+      };
+      const fmtCats = (groups, total) =>
+        groups.length === 0 ? '  —' :
+        groups.map(([cat, sum]) => {
+          const pct = total > 0 ? Math.round(sum / total * 100) : 0;
+          return `  ${cat}: ${fmt(sum)} (${pct}%)`;
+        }).join('\n');
+
+      const expGroups = aggregateCats(expense);
+      const incGroups = aggregateCats(income);
+
+      const lines = [
+        `📊 Отчёт: ${label}`,
+        '',
+        `Доходы:  ${fmt(totalIncome)}`,
+        `Расходы: ${fmt(totalExpense)}`,
+        `Баланс:  ${balance >= 0 ? '+' : '−'}${fmt(Math.abs(balance))}`,
+        '',
+        'Расходы по категориям:',
+        fmtCats(expGroups, totalExpense),
+        '',
+        'Доходы по категориям:',
+        fmtCats(incGroups, totalIncome),
+      ].join('\n');
+
+      const btn = document.getElementById('copy-report-btn');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(lines).then(() => {
+          btn.textContent = '✅';
+          setTimeout(() => { btn.textContent = '📋'; }, 1500);
+        });
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = lines; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+        btn.textContent = '✅';
+        setTimeout(() => { btn.textContent = '📋'; }, 1500);
+      }
+    }
+
     // ─── Главный рендер ──────────────────────────────────────────────────────
 
     function render() {
@@ -1214,6 +1471,7 @@
       renderAnalytics();
       renderDailyChart();
       renderLimits();
+      renderReport();
     }
 
     // ─── Инициализация ───────────────────────────────────────────────────────
