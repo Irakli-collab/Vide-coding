@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Бюджет</title>
+  <style>
+    /* ─── Базовые переменные ─── */
+    :root {
+      --bg: #f0f4f8;
+      --card: #ffffff;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --text-dark: #1a202c;
+      --text-gray: #4a5568;
+      --green: #16a34a;
+      --red: #dc2626;
+      --radius: 16px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.10);
+      --font: 'Segoe UI', Arial, sans-serif;
+    }
+
+    /* ─── Сброс и базовые стили ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: var(--font);
+      color: var(--text-dark);
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    /* ─── Карточка-обёртка ─── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px 32px;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 20px;
+    }
+
+    /* ─── Карточка баланса ─── */
+    .balance-card {
+      background: var(--primary);
+      color: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px 40px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .balance-label {
+      font-size: 0.85rem;
+      opacity: 0.8;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .balance-amount {
+      font-size: 2.8rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+
+    .balance-row {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+    }
+
+    .balance-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .balance-stat-label {
+      font-size: 0.78rem;
+      opacity: 0.75;
+    }
+
+    .balance-stat-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    /* ─── Двухколоночный грид ─── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ─── Форма ─── */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-gray);
+    }
+
+    input[type="number"],
+    input[type="date"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      color: var(--text-dark);
+      background: #f8fafc;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary);
+      background: #fff;
+    }
+
+    /* Тип транзакции — радио-кнопки в виде сегментов */
+    .type-toggle {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #e2e8f0;
+    }
+
+    .type-toggle input[type="radio"] { display: none; }
+
+    .type-toggle label {
+      flex: 1;
+      text-align: center;
+      padding: 9px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-gray);
+      background: #f8fafc;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .type-toggle input[type="radio"]:checked + label {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .type-toggle label:first-of-type {
+      border-right: 1px solid #e2e8f0;
+    }
+
+    /* Поле своей категории — скрыто по умолчанию */
+    #custom-category-wrap { display: none; margin-top: 8px; }
+
+    /* Кнопка добавить */
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 4px;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+
+    /* ─── Список транзакций ─── */
+    .tx-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 560px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .tx-list::-webkit-scrollbar { width: 4px; }
+    .tx-list::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
+
+    .tx-item {
+      display: grid;
+      grid-template-columns: 72px 1fr auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #edf2f7;
+      transition: background 0.15s;
+    }
+
+    .tx-item:hover { background: #f1f5f9; }
+
+    .tx-date {
+      font-size: 0.78rem;
+      color: var(--text-gray);
+      white-space: nowrap;
+    }
+
+    .tx-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .tx-category {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tx-comment {
+      font-size: 0.78rem;
+      color: var(--text-gray);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tx-amount {
+      font-size: 1rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .tx-amount.income { color: var(--green); }
+    .tx-amount.expense { color: var(--red); }
+
+    .tx-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: var(--text-gray);
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-icon:hover { background: #e2e8f0; color: var(--text-dark); }
+    .btn-icon.delete:hover { background: #fee2e2; color: var(--red); }
+
+    /* Инлайн-редактирование категории */
+    .edit-input {
+      padding: 2px 6px;
+      border: 1.5px solid var(--primary);
+      border-radius: 5px;
+      font-family: var(--font);
+      font-size: 0.88rem;
+      width: 120px;
+      outline: none;
+    }
+
+    .tx-empty {
+      text-align: center;
+      color: var(--text-gray);
+      font-size: 0.9rem;
+      padding: 32px 0;
+    }
+
+    /* ─── Аналитика ─── */
+    .analytics-section { margin-bottom: 20px; }
+    .analytics-section:last-child { margin-bottom: 0; }
+
+    .analytics-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-gray);
+      margin-bottom: 12px;
+    }
+
+    .cat-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .cat-label {
+      font-size: 0.85rem;
+      color: var(--text-dark);
+      margin-bottom: 4px;
+    }
+
+    .cat-bar-wrap {
+      background: #e9edf2;
+      border-radius: 99px;
+      height: 7px;
+      overflow: hidden;
+    }
+
+    .cat-bar {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+
+    .cat-amount {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      white-space: nowrap;
+    }
+
+    .compare-block {
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #edf2f7;
+    }
+
+    .compare-block p { font-size: 0.88rem; color: var(--text-gray); margin-bottom: 4px; }
+    .compare-result { font-size: 0.95rem; font-weight: 600; }
+    .compare-result.up { color: var(--red); }
+    .compare-result.down { color: var(--green); }
+    .compare-result.same { color: var(--text-gray); }
+
+    .divider {
+      height: 1px;
+      background: #edf2f7;
+      margin: 20px 0;
+    }
+
+    /* ─── Адаптив ─── */
+    @media (max-width: 780px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .balance-row { gap: 28px; }
+      .balance-amount { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Баланс -->
+  <div class="balance-card">
+    <div class="balance-label">Общий баланс</div>
+    <div class="balance-amount" id="balance-amount">₽ 0</div>
+    <div class="balance-row">
+      <div class="balance-stat">
+        <span class="balance-stat-label">Доходы</span>
+        <span class="balance-stat-value" id="total-income">₽ 0</span>
+      </div>
+      <div class="balance-stat">
+        <span class="balance-stat-label">Расходы</span>
+        <span class="balance-stat-value" id="total-expense">₽ 0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- Левая колонка -->
+    <div class="left-col">
+
+      <!-- Форма добавления -->
+      <div class="card">
+        <h2>Добавить транзакцию</h2>
+
+        <form id="tx-form">
+
+          <div class="form-group">
+            <label>Тип</label>
+            <div class="type-toggle">
+              <input type="radio" name="type" id="type-income" value="income">
+              <label for="type-income">Доход</label>
+              <input type="radio" name="type" id="type-expense" value="expense" checked>
+              <label for="type-expense">Расход</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="amount">Сумма (₽)</label>
+            <input type="number" id="amount" min="0.01" step="0.01" placeholder="0.00" required>
+          </div>
+
+          <div class="form-group">
+            <label for="category">Категория</label>
+            <select id="category"></select>
+            <div id="custom-category-wrap">
+              <input type="text" id="custom-category" placeholder="Введите категорию">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="tx-date">Дата</label>
+            <input type="date" id="tx-date" required>
+          </div>
+
+          <div class="form-group">
+            <label for="comment">Комментарий</label>
+            <input type="text" id="comment" placeholder="Необязательно">
+          </div>
+
+          <button type="submit" class="btn-primary">Добавить</button>
+        </form>
+      </div>
+
+      <!-- Аналитика -->
+      <div class="card">
+        <h2>Аналитика</h2>
+
+        <div class="analytics-section">
+          <div class="analytics-title">Топ расходов — этот месяц</div>
+          <div id="top-categories"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="analytics-section">
+          <div class="analytics-title">Сравнение с прошлым месяцем</div>
+          <div id="month-compare"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Правая колонка: список транзакций -->
+    <div class="card">
+      <h2>Транзакции</h2>
+      <ul class="tx-list" id="tx-list"></ul>
+    </div>
+
+  </div>
+
+  <script>
+    // ─── Данные ───────────────────────────────────────────────────────────────
+
+    const STORAGE_KEY = 'budget_transactions';
+
+    const CATEGORIES = {
+      income:  ['Зарплата', 'Фриланс', 'Подарок', 'Инвестиции', 'Прочее'],
+      expense: ['Еда', 'Транспорт', 'Жильё', 'Здоровье', 'Развлечения', 'Одежда', 'Связь', 'Прочее']
+    };
+
+    function loadData() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+      catch { return []; }
+    }
+
+    function saveData(transactions) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    }
+
+    let transactions = loadData();
+
+    // ─── Вспомогательные ────────────────────────────────────────────────────
+
+    function fmt(amount) {
+      return '₽\u00a0' + amount.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    function fmtDate(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      return `${d}.${m}.${y.slice(2)}`;
+    }
+
+    function today() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function monthKey(dateStr) {
+      return dateStr.slice(0, 7); // "YYYY-MM"
+    }
+
+    function currentMonth() { return today().slice(0, 7); }
+
+    function prevMonth() {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - 1);
+      return d.toISOString().slice(0, 7);
+    }
+
+    // ─── Категории в форме ───────────────────────────────────────────────────
+
+    function buildCategorySelect() {
+      const type  = document.querySelector('input[name="type"]:checked').value;
+      const sel   = document.getElementById('category');
+      const cats  = CATEGORIES[type];
+
+      sel.innerHTML = '';
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        sel.appendChild(opt);
+      });
+
+      const custom = document.createElement('option');
+      custom.value = '__custom__'; custom.textContent = '✎ Своя...';
+      sel.appendChild(custom);
+
+      onCategoryChange();
+    }
+
+    function onCategoryChange() {
+      const wrap = document.getElementById('custom-category-wrap');
+      wrap.style.display = document.getElementById('category').value === '__custom__' ? 'block' : 'none';
+    }
+
+    // ─── Добавление транзакции ───────────────────────────────────────────────
+
+    document.getElementById('tx-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const amount = parseFloat(document.getElementById('amount').value);
+      if (!amount || amount <= 0) return;
+
+      const type     = document.querySelector('input[name="type"]:checked').value;
+      const catSel   = document.getElementById('category').value;
+      const category = catSel === '__custom__'
+        ? (document.getElementById('custom-category').value.trim() || 'Прочее')
+        : catSel;
+      const date    = document.getElementById('tx-date').value;
+      const comment = document.getElementById('comment').value.trim();
+
+      transactions.unshift({ id: Date.now(), amount, type, category, date, comment });
+      saveData(transactions);
+      render();
+
+      this.reset();
+      document.getElementById('tx-date').value = today();
+      buildCategorySelect();
+    });
+
+    // ─── Удаление ────────────────────────────────────────────────────────────
+
+    function deleteTransaction(id) {
+      transactions = transactions.filter(t => t.id !== id);
+      saveData(transactions);
+      render();
+    }
+
+    // ─── Редактирование категории (inline) ───────────────────────────────────
+
+    function startEditCategory(id) {
+      const tx = transactions.find(t => t.id === id);
+      if (!tx) return;
+
+      const span = document.getElementById('cat-text-' + id);
+      const orig = tx.category;
+
+      span.innerHTML = `
+        <input class="edit-input" id="edit-input-${id}" value="${orig}" />
+        <button class="btn-icon" onclick="saveEditCategory(${id})" title="Сохранить">✓</button>
+        <button class="btn-icon" onclick="render()" title="Отмена">✕</button>
+      `;
+
+      const inp = document.getElementById('edit-input-' + id);
+      inp.focus();
+      inp.select();
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveEditCategory(id);
+        if (e.key === 'Escape') render();
+      });
+    }
+
+    function saveEditCategory(id) {
+      const inp = document.getElementById('edit-input-' + id);
+      if (!inp) return;
+      const value = inp.value.trim();
+      if (value) {
+        const tx = transactions.find(t => t.id === id);
+        if (tx) tx.category = value;
+        saveData(transactions);
+      }
+      render();
+    }
+
+    // ─── Рендер баланса ──────────────────────────────────────────────────────
+
+    function renderBalance() {
+      let income = 0, expense = 0;
+      transactions.forEach(t => {
+        if (t.type === 'income') income += t.amount;
+        else expense += t.amount;
+      });
+      const balance = income - expense;
+
+      document.getElementById('balance-amount').textContent = fmt(balance);
+      document.getElementById('total-income').textContent   = fmt(income);
+      document.getElementById('total-expense').textContent  = fmt(expense);
+    }
+
+    // ─── Рендер транзакций ───────────────────────────────────────────────────
+
+    function renderTransactions() {
+      const list = document.getElementById('tx-list');
+
+      if (transactions.length === 0) {
+        list.innerHTML = '<li class="tx-empty">Транзакций пока нет.<br>Добавьте первую запись слева.</li>';
+        return;
+      }
+
+      const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+      list.innerHTML = sorted.map(t => `
+        <li class="tx-item">
+          <span class="tx-date">${fmtDate(t.date)}</span>
+          <div class="tx-info">
+            <span class="tx-category" id="cat-text-${t.id}">
+              ${escHtml(t.category)}
+            </span>
+            ${t.comment ? `<span class="tx-comment">${escHtml(t.comment)}</span>` : ''}
+          </div>
+          <span class="tx-amount ${t.type}">
+            ${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}
+          </span>
+          <div class="tx-actions">
+            <button class="btn-icon" onclick="startEditCategory(${t.id})" title="Редактировать категорию">✎</button>
+            <button class="btn-icon delete" onclick="deleteTransaction(${t.id})" title="Удалить">✕</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ─── Рендер аналитики ────────────────────────────────────────────────────
+
+    function renderAnalytics() {
+      renderTopCategories();
+      renderMonthCompare();
+    }
+
+    function renderTopCategories() {
+      const cm = currentMonth();
+      const thisMonthExpenses = transactions.filter(t => t.type === 'expense' && monthKey(t.date) === cm);
+
+      const container = document.getElementById('top-categories');
+
+      if (thisMonthExpenses.length === 0) {
+        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray)">Нет расходов в этом месяце</p>';
+        return;
+      }
+
+      // Группируем по категории
+      const map = {};
+      thisMonthExpenses.forEach(t => {
+        map[t.category] = (map[t.category] || 0) + t.amount;
+      });
+
+      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const max    = sorted[0][1];
+
+      container.innerHTML = sorted.map(([cat, sum]) => `
+        <div class="cat-row">
+          <div>
+            <div class="cat-label">${escHtml(cat)}</div>
+            <div class="cat-bar-wrap">
+              <div class="cat-bar" style="width:${Math.round(sum / max * 100)}%"></div>
+            </div>
+          </div>
+          <div class="cat-amount">${fmt(sum)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderMonthCompare() {
+      const cm = currentMonth();
+      const pm = prevMonth();
+
+      const sumExpenses = (month) =>
+        transactions
+          .filter(t => t.type === 'expense' && monthKey(t.date) === month)
+          .reduce((s, t) => s + t.amount, 0);
+
+      const curr = sumExpenses(cm);
+      const prev = sumExpenses(pm);
+
+      const container = document.getElementById('month-compare');
+
+      let html = `<div class="compare-block">`;
+      html += `<p>Расходы этого месяца: <strong>${fmt(curr)}</strong></p>`;
+
+      if (prev === 0) {
+        html += `<p>Расходы прошлого месяца: <strong>—</strong></p>`;
+        html += `<div class="compare-result same">Нет данных за прошлый месяц</div>`;
+      } else {
+        html += `<p>Расходы прошлого месяца: <strong>${fmt(prev)}</strong></p>`;
+        const delta = curr - prev;
+        const pct   = Math.abs(Math.round(delta / prev * 100));
+        if (delta > 0) {
+          html += `<div class="compare-result up">↑ Рост на ${pct}% относительно прошлого месяца</div>`;
+        } else if (delta < 0) {
+          html += `<div class="compare-result down">↓ Снижение на ${pct}% относительно прошлого месяца</div>`;
+        } else {
+          html += `<div class="compare-result same">Расходы не изменились</div>`;
+        }
+      }
+
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    // ─── Главный рендер ──────────────────────────────────────────────────────
+
+    function render() {
+      renderBalance();
+      renderTransactions();
+      renderAnalytics();
+    }
+
+    // ─── Инициализация ───────────────────────────────────────────────────────
+
+    // Переключение типа → обновить список категорий
+    document.querySelectorAll('input[name="type"]').forEach(r =>
+      r.addEventListener('change', buildCategorySelect)
+    );
+
+    // Выбор своей категории
+    document.getElementById('category').addEventListener('change', onCategoryChange);
+
+    // Дата по умолчанию — сегодня
+    document.getElementById('tx-date').value = today();
+
+    buildCategorySelect();
+    render();
+  </script>
+</body>
+</html>
