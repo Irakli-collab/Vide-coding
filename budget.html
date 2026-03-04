@@ -343,6 +343,8 @@
       transition: width 0.4s ease;
     }
 
+    .cat-bar.income { background: var(--green); }
+
     .cat-amount {
       font-size: 0.85rem;
       font-weight: 600;
@@ -407,6 +409,14 @@
     </div>
   </div>
 
+  <!-- График доходов по дням -->
+  <div class="card chart-card">
+    <h2>Доходы по дням — <span id="income-chart-month-label"></span></h2>
+    <div class="chart-wrap">
+      <canvas id="daily-income-chart"></canvas>
+    </div>
+  </div>
+
   <div class="main-grid">
 
     <!-- Левая колонка -->
@@ -462,6 +472,13 @@
         <div class="analytics-section">
           <div class="analytics-title">Топ расходов — этот месяц</div>
           <div id="top-categories"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="analytics-section">
+          <div class="analytics-title">Топ доходов — этот месяц</div>
+          <div id="top-income-categories"></div>
         </div>
 
         <div class="divider"></div>
@@ -685,6 +702,7 @@
 
     function renderAnalytics() {
       renderTopCategories();
+      renderTopIncomeCategories();
       renderMonthCompare();
     }
 
@@ -707,8 +725,11 @@
 
       const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
       const max    = sorted[0][1];
+      const total  = thisMonthExpenses.reduce((s, t) => s + t.amount, 0);
 
-      container.innerHTML = sorted.map(([cat, sum]) => `
+      container.innerHTML = sorted.map(([cat, sum]) => {
+        const pct = Math.round(sum / total * 100);
+        return `
         <div class="cat-row">
           <div>
             <div class="cat-label">${escHtml(cat)}</div>
@@ -716,9 +737,46 @@
               <div class="cat-bar" style="width:${Math.round(sum / max * 100)}%"></div>
             </div>
           </div>
-          <div class="cat-amount">${fmt(sum)}</div>
+          <div class="cat-amount">${fmt(sum)} <span style="font-weight:400;color:var(--text-gray)">(${pct}%)</span></div>
         </div>
-      `).join('');
+      `;
+      }).join('');
+    }
+
+    function renderTopIncomeCategories() {
+      const cm = currentMonth();
+      const thisMonthIncome = transactions.filter(t => t.type === 'income' && monthKey(t.date) === cm);
+
+      const container = document.getElementById('top-income-categories');
+
+      if (thisMonthIncome.length === 0) {
+        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray)">Нет доходов в этом месяце</p>';
+        return;
+      }
+
+      const map = {};
+      thisMonthIncome.forEach(t => {
+        map[t.category] = (map[t.category] || 0) + t.amount;
+      });
+
+      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const max    = sorted[0][1];
+      const total  = thisMonthIncome.reduce((s, t) => s + t.amount, 0);
+
+      container.innerHTML = sorted.map(([cat, sum]) => {
+        const pct = Math.round(sum / total * 100);
+        return `
+        <div class="cat-row">
+          <div>
+            <div class="cat-label">${escHtml(cat)}</div>
+            <div class="cat-bar-wrap">
+              <div class="cat-bar income" style="width:${Math.round(sum / max * 100)}%"></div>
+            </div>
+          </div>
+          <div class="cat-amount">${fmt(sum)} <span style="font-weight:400;color:var(--text-gray)">(${pct}%)</span></div>
+        </div>
+      `;
+      }).join('');
     }
 
     function renderMonthCompare() {
@@ -859,6 +917,102 @@
       });
     }
 
+    // ─── График доходов по дням ──────────────────────────────────────────────
+
+    let dailyIncomeChart = null;
+
+    function renderDailyIncomeChart() {
+      const now  = new Date();
+      const year = now.getFullYear();
+      const mon  = now.getMonth();
+      const cm   = currentMonth();
+      const days = new Date(year, mon + 1, 0).getDate();
+
+      document.getElementById('income-chart-month-label').textContent =
+        now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+
+      const dayTotals = new Array(days).fill(0);
+      transactions
+        .filter(t => t.type === 'income' && monthKey(t.date) === cm)
+        .forEach(t => {
+          const day = parseInt(t.date.slice(8, 10), 10) - 1;
+          if (day >= 0 && day < days) dayTotals[day] += t.amount;
+        });
+
+      const labels = Array.from({ length: days }, (_, i) => i + 1);
+
+      const today_day = now.getDate();
+      const bgColors = labels.map(d =>
+        d === today_day ? 'rgba(22,163,74,0.90)' : 'rgba(22,163,74,0.45)'
+      );
+      const hoverColors = labels.map(() => 'rgba(15,130,60,0.95)');
+
+      const canvas = document.getElementById('daily-income-chart');
+
+      if (dailyIncomeChart) {
+        dailyIncomeChart.data.labels             = labels;
+        dailyIncomeChart.data.datasets[0].data   = dayTotals;
+        dailyIncomeChart.data.datasets[0].backgroundColor      = bgColors;
+        dailyIncomeChart.data.datasets[0].hoverBackgroundColor = hoverColors;
+        dailyIncomeChart.update();
+        return;
+      }
+
+      dailyIncomeChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Доходы',
+            data: dayTotals,
+            backgroundColor: bgColors,
+            hoverBackgroundColor: hoverColors,
+            borderRadius: 5,
+            borderSkipped: false,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: ctx => `${ctx[0].label} ${now.toLocaleString('ru-RU', { month: 'long' })}`,
+                label: ctx => ctx.parsed.y > 0 ? ' ' + fmt(ctx.parsed.y) : ' —'
+              },
+              backgroundColor: '#1a202c',
+              titleColor: '#a0aec0',
+              bodyColor: '#fff',
+              padding: 10,
+              cornerRadius: 8,
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              border: { display: false },
+              ticks: {
+                color: '#718096',
+                font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
+                callback: (_, i) => (i + 1) % 5 === 1 || (i + 1) === days ? i + 1 : ''
+              }
+            },
+            y: {
+              grid: { color: '#edf2f7' },
+              border: { display: false, dash: [4, 4] },
+              ticks: {
+                color: '#718096',
+                font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
+                callback: v => v === 0 ? '0' : (v >= 1000 ? (v / 1000).toFixed(0) + 'к' : v)
+              },
+              beginAtZero: true,
+            }
+          }
+        }
+      });
+    }
+
     // ─── Главный рендер ──────────────────────────────────────────────────────
 
     function render() {
@@ -866,6 +1020,7 @@
       renderTransactions();
       renderAnalytics();
       renderDailyChart();
+      renderDailyIncomeChart();
     }
 
     // ─── Инициализация ───────────────────────────────────────────────────────
