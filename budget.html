@@ -375,6 +375,36 @@
     .chart-card { margin-bottom: 24px; }
     .chart-wrap { position: relative; height: 220px; }
 
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .chart-header h2 { margin-bottom: 0; }
+
+    .chart-toggle {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+    .chart-toggle-btn {
+      padding: 6px 16px;
+      border: none;
+      background: #f8fafc;
+      color: var(--text-gray);
+      font-family: var(--font);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .chart-toggle-btn:first-child { border-right: 1px solid #e2e8f0; }
+    .chart-toggle-btn.active { background: var(--primary); color: #fff; }
+    .chart-toggle-btn.active.income { background: var(--green); }
+
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
       .main-grid { grid-template-columns: 1fr; }
@@ -401,19 +431,17 @@
     </div>
   </div>
 
-  <!-- График расходов по дням -->
+  <!-- График по дням -->
   <div class="card chart-card">
-    <h2>Расходы по дням — <span id="chart-month-label"></span></h2>
+    <div class="chart-header">
+      <h2><span id="chart-type-label">Расходы</span> по дням — <span id="chart-month-label"></span></h2>
+      <div class="chart-toggle">
+        <button class="chart-toggle-btn active" id="chart-btn-expense" onclick="setChartMode('expense')">Расходы</button>
+        <button class="chart-toggle-btn" id="chart-btn-income" onclick="setChartMode('income')">Доходы</button>
+      </div>
+    </div>
     <div class="chart-wrap">
       <canvas id="daily-chart"></canvas>
-    </div>
-  </div>
-
-  <!-- График доходов по дням -->
-  <div class="card chart-card">
-    <h2>Доходы по дням — <span id="income-chart-month-label"></span></h2>
-    <div class="chart-wrap">
-      <canvas id="daily-income-chart"></canvas>
     </div>
   </div>
 
@@ -816,47 +844,58 @@
       container.innerHTML = html;
     }
 
-    // ─── График расходов по дням ─────────────────────────────────────────────
+    // ─── График по дням ──────────────────────────────────────────────────────
 
     let dailyChart = null;
+    let chartMode  = 'expense'; // 'expense' | 'income'
+
+    function setChartMode(mode) {
+      chartMode = mode;
+      document.getElementById('chart-btn-expense').className =
+        'chart-toggle-btn' + (mode === 'expense' ? ' active' : '');
+      document.getElementById('chart-btn-income').className =
+        'chart-toggle-btn' + (mode === 'income' ? ' active income' : '');
+      renderDailyChart();
+    }
 
     function renderDailyChart() {
+      const isExpense = chartMode === 'expense';
       const now  = new Date();
       const year = now.getFullYear();
-      const mon  = now.getMonth();           // 0-based
-      const cm   = currentMonth();           // "YYYY-MM"
-      const days = new Date(year, mon + 1, 0).getDate(); // кол-во дней в месяце
+      const mon  = now.getMonth();
+      const cm   = currentMonth();
+      const days = new Date(year, mon + 1, 0).getDate();
 
-      // Подпись заголовка: «Март 2026»
+      document.getElementById('chart-type-label').textContent = isExpense ? 'Расходы' : 'Доходы';
       document.getElementById('chart-month-label').textContent =
         now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
 
-      // Суммируем расходы по дням
       const dayTotals = new Array(days).fill(0);
       transactions
-        .filter(t => t.type === 'expense' && monthKey(t.date) === cm)
+        .filter(t => t.type === chartMode && monthKey(t.date) === cm)
         .forEach(t => {
-          const day = parseInt(t.date.slice(8, 10), 10) - 1; // 0-based index
+          const day = parseInt(t.date.slice(8, 10), 10) - 1;
           if (day >= 0 && day < days) dayTotals[day] += t.amount;
         });
 
-      const labels = Array.from({ length: days }, (_, i) => i + 1); // [1, 2, ..., N]
-
-      // Цвет столбцов: текущий день — насыщенный, остальные — прозрачнее
+      const labels = Array.from({ length: days }, (_, i) => i + 1);
       const today_day = now.getDate();
-      const bgColors = labels.map(d =>
-        d === today_day ? 'rgba(79,70,229,0.90)' : 'rgba(79,70,229,0.45)'
-      );
-      const hoverColors = labels.map(() => 'rgba(67,56,202,0.95)');
+
+      const solidColor = isExpense ? 'rgba(79,70,229,0.90)' : 'rgba(22,163,74,0.90)';
+      const fadedColor = isExpense ? 'rgba(79,70,229,0.45)' : 'rgba(22,163,74,0.45)';
+      const hoverColor = isExpense ? 'rgba(67,56,202,0.95)'  : 'rgba(15,130,60,0.95)';
+
+      const bgColors    = labels.map(d => d === today_day ? solidColor : fadedColor);
+      const hoverColors = labels.map(() => hoverColor);
 
       const canvas = document.getElementById('daily-chart');
 
       if (dailyChart) {
-        // Обновляем существующий график без пересоздания
-        dailyChart.data.labels             = labels;
-        dailyChart.data.datasets[0].data   = dayTotals;
-        dailyChart.data.datasets[0].backgroundColor      = bgColors;
-        dailyChart.data.datasets[0].hoverBackgroundColor = hoverColors;
+        dailyChart.data.labels                               = labels;
+        dailyChart.data.datasets[0].data                    = dayTotals;
+        dailyChart.data.datasets[0].label                   = isExpense ? 'Расходы' : 'Доходы';
+        dailyChart.data.datasets[0].backgroundColor         = bgColors;
+        dailyChart.data.datasets[0].hoverBackgroundColor    = hoverColors;
         dailyChart.update();
         return;
       }
@@ -866,104 +905,7 @@
         data: {
           labels,
           datasets: [{
-            label: 'Расходы',
-            data: dayTotals,
-            backgroundColor: bgColors,
-            hoverBackgroundColor: hoverColors,
-            borderRadius: 5,
-            borderSkipped: false,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                title: ctx => `${ctx[0].label} ${now.toLocaleString('ru-RU', { month: 'long' })}`,
-                label: ctx => ctx.parsed.y > 0 ? ' ' + fmt(ctx.parsed.y) : ' —'
-              },
-              backgroundColor: '#1a202c',
-              titleColor: '#a0aec0',
-              bodyColor: '#fff',
-              padding: 10,
-              cornerRadius: 8,
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              border: { display: false },
-              ticks: {
-                color: '#718096',
-                font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
-                // Показываем только каждый 5-й день, чтобы не было тесноты
-                callback: (_, i) => (i + 1) % 5 === 1 || (i + 1) === days ? i + 1 : ''
-              }
-            },
-            y: {
-              grid: { color: '#edf2f7' },
-              border: { display: false, dash: [4, 4] },
-              ticks: {
-                color: '#718096',
-                font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
-                callback: v => v === 0 ? '0' : (v >= 1000 ? (v / 1000).toFixed(0) + 'к' : v)
-              },
-              beginAtZero: true,
-            }
-          }
-        }
-      });
-    }
-
-    // ─── График доходов по дням ──────────────────────────────────────────────
-
-    let dailyIncomeChart = null;
-
-    function renderDailyIncomeChart() {
-      const now  = new Date();
-      const year = now.getFullYear();
-      const mon  = now.getMonth();
-      const cm   = currentMonth();
-      const days = new Date(year, mon + 1, 0).getDate();
-
-      document.getElementById('income-chart-month-label').textContent =
-        now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
-
-      const dayTotals = new Array(days).fill(0);
-      transactions
-        .filter(t => t.type === 'income' && monthKey(t.date) === cm)
-        .forEach(t => {
-          const day = parseInt(t.date.slice(8, 10), 10) - 1;
-          if (day >= 0 && day < days) dayTotals[day] += t.amount;
-        });
-
-      const labels = Array.from({ length: days }, (_, i) => i + 1);
-
-      const today_day = now.getDate();
-      const bgColors = labels.map(d =>
-        d === today_day ? 'rgba(22,163,74,0.90)' : 'rgba(22,163,74,0.45)'
-      );
-      const hoverColors = labels.map(() => 'rgba(15,130,60,0.95)');
-
-      const canvas = document.getElementById('daily-income-chart');
-
-      if (dailyIncomeChart) {
-        dailyIncomeChart.data.labels             = labels;
-        dailyIncomeChart.data.datasets[0].data   = dayTotals;
-        dailyIncomeChart.data.datasets[0].backgroundColor      = bgColors;
-        dailyIncomeChart.data.datasets[0].hoverBackgroundColor = hoverColors;
-        dailyIncomeChart.update();
-        return;
-      }
-
-      dailyIncomeChart = new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Доходы',
+            label: isExpense ? 'Расходы' : 'Доходы',
             data: dayTotals,
             backgroundColor: bgColors,
             hoverBackgroundColor: hoverColors,
@@ -1020,7 +962,6 @@
       renderTransactions();
       renderAnalytics();
       renderDailyChart();
-      renderDailyIncomeChart();
     }
 
     // ─── Инициализация ───────────────────────────────────────────────────────
