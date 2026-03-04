@@ -56,7 +56,22 @@
       padding: 32px 40px;
       text-align: center;
       margin-bottom: 24px;
+      position: relative;
     }
+
+    .theme-toggle {
+      position: absolute;
+      top: 16px; right: 20px;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .theme-toggle:hover { background: rgba(255,255,255,0.28); }
 
     .balance-label {
       font-size: 0.85rem;
@@ -466,6 +481,52 @@
     .limit-status.warn { color: #f59e0b; }
     .limit-status.over { color: var(--red); }
 
+    /* ─── Тёмная тема ─── */
+    body.dark {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --text-dark: #e8eaf0;
+      --text-gray: #8896ab;
+      --shadow: 0 4px 24px rgba(0,0,0,0.45);
+    }
+
+    body.dark input[type="number"],
+    body.dark input[type="date"],
+    body.dark input[type="text"],
+    body.dark select {
+      background: #252836;
+      border-color: #2e3347;
+      color: var(--text-dark);
+      color-scheme: dark;
+    }
+    body.dark input:focus,
+    body.dark select:focus { background: #1e2233; border-color: var(--primary); }
+
+    body.dark .type-toggle { border-color: #2e3347; }
+    body.dark .type-toggle label { background: #252836; color: var(--text-gray); }
+    body.dark .type-toggle label:first-of-type { border-right-color: #2e3347; }
+
+    body.dark .tx-item { background: #252836; border-color: #2a2d3e; }
+    body.dark .tx-item:hover { background: #2a2d3e; }
+    body.dark .tx-list::-webkit-scrollbar-thumb { background: #3a3f55; }
+
+    body.dark .cat-bar-wrap { background: #2a2d3e; }
+    body.dark .compare-block { background: #252836; border-color: #2a2d3e; }
+    body.dark .divider { background: #2a2d3e; }
+
+    body.dark .chart-toggle { border-color: #2e3347; }
+    body.dark .chart-toggle-btn { background: #252836; }
+    body.dark .chart-toggle-btn:first-child { border-right-color: #2e3347; }
+
+    body.dark .limit-progress-wrap { background: #2a2d3e; }
+
+    body.dark .btn-icon:hover { background: #2a2d3e; color: var(--text-dark); }
+    body.dark .btn-icon.delete:hover { background: #3d1f1f; color: var(--red); }
+    body.dark .edit-input { background: #252836; color: var(--text-dark); border-color: var(--primary); }
+
+    body.dark .tabs { background: #1a1d2e; }
+    body.dark .tab-btn { color: var(--text-gray); }
+
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
       .main-grid { grid-template-columns: 1fr; }
@@ -479,6 +540,7 @@
 
   <!-- Баланс -->
   <div class="balance-card">
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Сменить тему">🌙</button>
     <div class="balance-label">Общий баланс</div>
     <div class="balance-amount" id="balance-amount">₽ 0</div>
     <div class="balance-row">
@@ -492,14 +554,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Вкладки -->
-  <div class="tabs">
-    <button class="tab-btn active" id="tab-main"   onclick="switchTab('main')">Обзор</button>
-    <button class="tab-btn"        id="tab-limits" onclick="switchTab('limits')">Лимиты</button>
-  </div>
-
-  <div id="view-main">
 
   <!-- График по дням -->
   <div class="card chart-card">
@@ -589,37 +643,36 @@
 
     </div>
 
-    <!-- Правая колонка: список транзакций -->
-    <div class="card">
-      <h2>Транзакции</h2>
-      <ul class="tx-list" id="tx-list"></ul>
-    </div>
+    <!-- Правая колонка: транзакции + лимиты -->
+    <div style="display:flex; flex-direction:column; gap:24px;">
 
-  </div>
-
-  </div><!-- /view-main -->
-
-  <!-- Вкладка: Лимиты -->
-  <div id="view-limits" style="display:none">
-    <div class="card">
-      <h2>Лимиты по категориям</h2>
-
-      <div class="limit-form">
-        <div>
-          <label for="limit-category">Категория</label>
-          <select id="limit-category"></select>
-        </div>
-        <div>
-          <label for="limit-amount">Лимит (₽)</label>
-          <input type="number" id="limit-amount" min="1" step="1" placeholder="Сумма лимита">
-        </div>
-        <div style="display:flex;align-items:flex-end">
-          <button class="btn-primary" onclick="applyLimit()" style="margin-top:0">Установить</button>
-        </div>
+      <div class="card">
+        <h2>Транзакции</h2>
+        <ul class="tx-list" id="tx-list"></ul>
       </div>
 
-      <div id="limits-list"></div>
+      <div class="card">
+        <h2>Лимиты по категориям</h2>
+
+        <div class="limit-form">
+          <div>
+            <label for="limit-category">Категория</label>
+            <select id="limit-category"></select>
+          </div>
+          <div>
+            <label for="limit-amount">Лимит (₽)</label>
+            <input type="number" id="limit-amount" min="1" step="1" placeholder="Сумма лимита">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn-primary" onclick="applyLimit()" style="margin-top:0">Установить</button>
+          </div>
+        </div>
+
+        <div id="limits-list"></div>
+      </div>
+
     </div>
+
   </div>
 
   <script>
@@ -969,6 +1022,7 @@
 
     function renderDailyChart() {
       const isExpense = chartMode === 'expense';
+      const isDark = document.body.classList.contains('dark');
       const now  = new Date();
       const year = now.getFullYear();
       const mon  = now.getMonth();
@@ -1032,8 +1086,8 @@
                 title: ctx => `${ctx[0].label} ${now.toLocaleString('ru-RU', { month: 'long' })}`,
                 label: ctx => ctx.parsed.y > 0 ? ' ' + fmt(ctx.parsed.y) : ' —'
               },
-              backgroundColor: '#1a202c',
-              titleColor: '#a0aec0',
+              backgroundColor: isDark ? '#252836' : '#1a202c',
+              titleColor:       isDark ? '#8896ab' : '#a0aec0',
               bodyColor: '#fff',
               padding: 10,
               cornerRadius: 8,
@@ -1044,16 +1098,16 @@
               grid: { display: false },
               border: { display: false },
               ticks: {
-                color: '#718096',
+                color: isDark ? '#8896ab' : '#718096',
                 font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
                 callback: (_, i) => (i + 1) % 5 === 1 || (i + 1) === days ? i + 1 : ''
               }
             },
             y: {
-              grid: { color: '#edf2f7' },
+              grid: { color: isDark ? '#2a2d3e' : '#edf2f7' },
               border: { display: false, dash: [4, 4] },
               ticks: {
-                color: '#718096',
+                color: isDark ? '#8896ab' : '#718096',
                 font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
                 callback: v => v === 0 ? '0' : (v >= 1000 ? (v / 1000).toFixed(0) + 'к' : v)
               },
@@ -1064,14 +1118,19 @@
       });
     }
 
-    // ─── Вкладки ─────────────────────────────────────────────────────────────
+    // ─── Тема ────────────────────────────────────────────────────────────────
 
-    function switchTab(tab) {
-      document.getElementById('tab-main').classList.toggle('active', tab === 'main');
-      document.getElementById('tab-limits').classList.toggle('active', tab === 'limits');
-      document.getElementById('view-main').style.display   = tab === 'main'   ? '' : 'none';
-      document.getElementById('view-limits').style.display = tab === 'limits' ? '' : 'none';
-      if (tab === 'limits') renderLimits();
+    function applyTheme(dark) {
+      document.body.classList.toggle('dark', dark);
+      document.getElementById('theme-toggle').textContent = dark ? '☀️' : '🌙';
+      if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
+      renderDailyChart();
+    }
+
+    function toggleTheme() {
+      const dark = !document.body.classList.contains('dark');
+      localStorage.setItem('budget_theme', dark ? 'dark' : 'light');
+      applyTheme(dark);
     }
 
     // ─── Функции лимитов ─────────────────────────────────────────────────────
@@ -1154,6 +1213,7 @@
       renderTransactions();
       renderAnalytics();
       renderDailyChart();
+      renderLimits();
     }
 
     // ─── Инициализация ───────────────────────────────────────────────────────
@@ -1171,6 +1231,7 @@
 
     buildCategorySelect();
     buildLimitCategorySelect();
+    applyTheme(localStorage.getItem('budget_theme') === 'dark');
     render();
   </script>
 </body>
