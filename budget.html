@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Бюджет</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     /* ─── Базовые переменные ─── */
     :root {
@@ -368,6 +369,10 @@
       margin: 20px 0;
     }
 
+    /* ─── График ─── */
+    .chart-card { margin-bottom: 24px; }
+    .chart-wrap { position: relative; height: 220px; }
+
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
       .main-grid { grid-template-columns: 1fr; }
@@ -391,6 +396,14 @@
         <span class="balance-stat-label">Расходы</span>
         <span class="balance-stat-value" id="total-expense">₽ 0</span>
       </div>
+    </div>
+  </div>
+
+  <!-- График расходов по дням -->
+  <div class="card chart-card">
+    <h2>Расходы по дням — <span id="chart-month-label"></span></h2>
+    <div class="chart-wrap">
+      <canvas id="daily-chart"></canvas>
     </div>
   </div>
 
@@ -745,12 +758,114 @@
       container.innerHTML = html;
     }
 
+    // ─── График расходов по дням ─────────────────────────────────────────────
+
+    let dailyChart = null;
+
+    function renderDailyChart() {
+      const now  = new Date();
+      const year = now.getFullYear();
+      const mon  = now.getMonth();           // 0-based
+      const cm   = currentMonth();           // "YYYY-MM"
+      const days = new Date(year, mon + 1, 0).getDate(); // кол-во дней в месяце
+
+      // Подпись заголовка: «Март 2026»
+      document.getElementById('chart-month-label').textContent =
+        now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+
+      // Суммируем расходы по дням
+      const dayTotals = new Array(days).fill(0);
+      transactions
+        .filter(t => t.type === 'expense' && monthKey(t.date) === cm)
+        .forEach(t => {
+          const day = parseInt(t.date.slice(8, 10), 10) - 1; // 0-based index
+          if (day >= 0 && day < days) dayTotals[day] += t.amount;
+        });
+
+      const labels = Array.from({ length: days }, (_, i) => i + 1); // [1, 2, ..., N]
+
+      // Цвет столбцов: текущий день — насыщенный, остальные — прозрачнее
+      const today_day = now.getDate();
+      const bgColors = labels.map(d =>
+        d === today_day ? 'rgba(79,70,229,0.90)' : 'rgba(79,70,229,0.45)'
+      );
+      const hoverColors = labels.map(() => 'rgba(67,56,202,0.95)');
+
+      const canvas = document.getElementById('daily-chart');
+
+      if (dailyChart) {
+        // Обновляем существующий график без пересоздания
+        dailyChart.data.labels             = labels;
+        dailyChart.data.datasets[0].data   = dayTotals;
+        dailyChart.data.datasets[0].backgroundColor      = bgColors;
+        dailyChart.data.datasets[0].hoverBackgroundColor = hoverColors;
+        dailyChart.update();
+        return;
+      }
+
+      dailyChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Расходы',
+            data: dayTotals,
+            backgroundColor: bgColors,
+            hoverBackgroundColor: hoverColors,
+            borderRadius: 5,
+            borderSkipped: false,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: ctx => `${ctx[0].label} ${now.toLocaleString('ru-RU', { month: 'long' })}`,
+                label: ctx => ctx.parsed.y > 0 ? ' ' + fmt(ctx.parsed.y) : ' —'
+              },
+              backgroundColor: '#1a202c',
+              titleColor: '#a0aec0',
+              bodyColor: '#fff',
+              padding: 10,
+              cornerRadius: 8,
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              border: { display: false },
+              ticks: {
+                color: '#718096',
+                font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
+                // Показываем только каждый 5-й день, чтобы не было тесноты
+                callback: (_, i) => (i + 1) % 5 === 1 || (i + 1) === days ? i + 1 : ''
+              }
+            },
+            y: {
+              grid: { color: '#edf2f7' },
+              border: { display: false, dash: [4, 4] },
+              ticks: {
+                color: '#718096',
+                font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
+                callback: v => v === 0 ? '0' : (v >= 1000 ? (v / 1000).toFixed(0) + 'к' : v)
+              },
+              beginAtZero: true,
+            }
+          }
+        }
+      });
+    }
+
     // ─── Главный рендер ──────────────────────────────────────────────────────
 
     function render() {
       renderBalance();
       renderTransactions();
       renderAnalytics();
+      renderDailyChart();
     }
 
     // ─── Инициализация ───────────────────────────────────────────────────────
