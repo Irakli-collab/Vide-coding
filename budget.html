@@ -635,12 +635,20 @@
 
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
+      body            { padding: 16px 12px; }
+      .card           { padding: 20px 16px; }
       .main-grid      { grid-template-columns: 1fr; }
-      .balance-row    { gap: 28px; }
-      .balance-amount { font-size: 2rem; }
+      .balance-row    { gap: 20px; }
+      .chart-header   { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .chart-header h2 { font-size: 0.95rem; }
+      .chart-wrap     { height: 180px; }
       .limit-form     { grid-template-columns: 1fr; }
+      .report-header  { flex-direction: column; align-items: flex-start; gap: 10px; }
       .report-grid    { grid-template-columns: 1fr; }
       .report-summary { flex-direction: column; }
+      .tx-item        { grid-template-columns: 56px 1fr auto auto; gap: 8px; padding: 10px; }
+      .cat-manage-row { flex-wrap: wrap; }
+      .cat-manage-row .btn-primary { width: 100%; }
     }
   </style>
 </head>
@@ -1275,10 +1283,13 @@
               ticks: {
                 color: isDark ? '#8896ab' : '#718096',
                 font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
+                maxRotation: 0,
                 callback: (_, i) => (i + 1) % 5 === 1 || (i + 1) === days ? i + 1 : ''
               }
             },
             y: {
+              min: 0,
+              suggestedMax: 10,
               grid: { color: isDark ? '#2a2d3e' : '#edf2f7' },
               border: { display: false, dash: [4, 4] },
               ticks: {
@@ -1286,11 +1297,13 @@
                 font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
                 callback: v => v === 0 ? '0' : (v >= 1000 ? (v / 1000).toFixed(0) + 'к' : v)
               },
-              beginAtZero: true,
             }
           }
         }
       });
+
+      // Принудительный resize после создания — исправляет 0×0 размеры на мобильном
+      requestAnimationFrame(() => { if (dailyChart) dailyChart.resize(); });
     }
 
     // ─── Тема ────────────────────────────────────────────────────────────────
