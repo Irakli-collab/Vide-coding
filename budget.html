@@ -633,22 +633,85 @@
     body.dark .report-stat   { background: #252836; border-color: #2a2d3e; }
     body.dark .custom-cat-item { background: #252836; border-color: #2a2d3e; }
 
+    /* ─── Навигация ─── */
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .nav-tab {
+      padding: 9px 22px;
+      border: none;
+      border-radius: 8px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-gray);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-tab.active {
+      background: var(--primary);
+      color: #fff;
+    }
+    body.dark .nav-tab { background: var(--card); }
+
+    /* ─── История ─── */
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .history-header h2 { margin-bottom: 0; }
+
+    .hist-cat-block { margin-bottom: 20px; }
+    .hist-cat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 1.5px solid #edf2f7;
+      margin-bottom: 8px;
+    }
+    .hist-cat-name  { font-size: 0.95rem; font-weight: 600; color: var(--text-dark); }
+    .hist-cat-total { font-size: 0.95rem; font-weight: 700; white-space: nowrap; }
+    .hist-tx-row {
+      display: grid;
+      grid-template-columns: 60px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .hist-tx-row:last-child { border-bottom: none; }
+    .hist-tx-date    { font-size: 0.78rem; color: var(--text-gray); white-space: nowrap; }
+    .hist-tx-comment { font-size: 0.82rem; color: var(--text-gray); }
+    .hist-tx-amount  { font-size: 0.9rem; font-weight: 600; white-space: nowrap; }
+    .hist-tx-amount.income  { color: var(--green); }
+    .hist-tx-amount.expense { color: var(--red); }
+    body.dark .hist-cat-header { border-bottom-color: #2a2d3e; }
+    body.dark .hist-tx-row     { border-bottom-color: #2a2d3e; }
+
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
       body            { padding: 16px 12px; }
       .card           { padding: 20px 16px; }
       .main-grid      { grid-template-columns: 1fr; }
       .balance-row    { gap: 20px; }
-      .chart-header   { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .chart-header, .report-header { flex-direction: column; align-items: flex-start; gap: 10px; }
       .chart-header h2 { font-size: 0.95rem; }
       .chart-wrap     { height: 180px; }
       .limit-form     { grid-template-columns: 1fr; }
-      .report-header  { flex-direction: column; align-items: flex-start; gap: 10px; }
       .report-grid    { grid-template-columns: 1fr; }
       .report-summary { flex-direction: column; }
       .tx-item        { grid-template-columns: 56px 1fr auto auto; gap: 8px; padding: 10px; }
       .cat-manage-row { flex-wrap: wrap; }
       .cat-manage-row .btn-primary { width: 100%; }
+      .history-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .hist-tx-row    { grid-template-columns: 50px 1fr auto; gap: 6px; }
     }
   </style>
 </head>
@@ -670,6 +733,13 @@
       </div>
     </div>
   </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="nav-main"    onclick="switchView('main')">Главная</button>
+    <button class="nav-tab"        id="nav-history" onclick="switchView('history')">История</button>
+  </div>
+
+  <div id="view-main">
 
   <!-- График по дням -->
   <div class="card chart-card">
@@ -832,6 +902,22 @@
     <div id="report-content"></div>
   </div>
 
+  </div><!-- /#view-main -->
+
+  <div id="view-history" style="display:none">
+    <div class="card" style="margin-bottom:24px">
+      <div class="history-header">
+        <h2>История</h2>
+        <div class="chart-toggle">
+          <button class="chart-toggle-btn active" id="hist-btn-all"   onclick="setHistPeriod('all')">Все</button>
+          <button class="chart-toggle-btn"        id="hist-btn-month" onclick="setHistPeriod('month')">Месяц</button>
+          <button class="chart-toggle-btn"        id="hist-btn-week"  onclick="setHistPeriod('week')">Неделя</button>
+        </div>
+      </div>
+      <div id="history-content"></div>
+    </div>
+  </div>
+
   <script>
     // ─── Данные ───────────────────────────────────────────────────────────────
 
@@ -853,44 +939,33 @@
       return e ? `${e} ${name}` : name;
     }
 
-    function loadData() {
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-      catch { return []; }
+    function loadFromStorage(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key)) || fallback; }
+      catch { return fallback; }
+    }
+    function saveToStorage(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
     }
 
-    function saveData(transactions) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
-    }
+    let transactions = loadFromStorage(STORAGE_KEY, []);
 
-    let transactions = loadData();
+    function saveData(t) { saveToStorage(STORAGE_KEY, t); }
 
     // ─── Лимиты ───────────────────────────────────────────────────────────────
 
     const LIMITS_KEY = 'budget_limits';
 
-    function loadLimits() {
-      try { return JSON.parse(localStorage.getItem(LIMITS_KEY)) || {}; }
-      catch { return {}; }
-    }
-    function saveLimits() {
-      localStorage.setItem(LIMITS_KEY, JSON.stringify(limits));
-    }
+    let limits = loadFromStorage(LIMITS_KEY, {});
 
-    let limits = loadLimits();
+    function saveLimits() { saveToStorage(LIMITS_KEY, limits); }
 
     // ─── Пользовательские категории ──────────────────────────────────────────
 
     const CUSTOM_CATS_KEY = 'budget_custom_categories';
 
-    function loadCustomCats() {
-      try { return JSON.parse(localStorage.getItem(CUSTOM_CATS_KEY)) || { income: [], expense: [] }; }
-      catch { return { income: [], expense: [] }; }
-    }
-    function saveCustomCats() {
-      localStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(customCats));
-    }
+    let customCats = loadFromStorage(CUSTOM_CATS_KEY, { income: [], expense: [] });
 
-    let customCats = loadCustomCats();
+    function saveCustomCats() { saveToStorage(CUSTOM_CATS_KEY, customCats); }
 
     // ─── Вспомогательные ────────────────────────────────────────────────────
 
@@ -1392,6 +1467,12 @@
 
     // ─── Управление пользовательскими категориями ────────────────────────────
 
+    function refreshCategoryUI() {
+      buildCategorySelect();
+      buildLimitCategorySelect();
+      renderCustomCategories();
+    }
+
     function addCustomCategory() {
       const type  = document.querySelector('input[name="cat-type"]:checked').value;
       const input = document.getElementById('new-cat-input');
@@ -1403,17 +1484,13 @@
       customCats[type].push(name);
       saveCustomCats();
       input.value = '';
-      buildCategorySelect();
-      buildLimitCategorySelect();
-      renderCustomCategories();
+      refreshCategoryUI();
     }
 
-    function deleteCustomCategory(type, name) {
-      customCats[type] = customCats[type].filter(c => c !== name);
+    function deleteCustomCategory(type, idx) {
+      customCats[type].splice(idx, 1);
       saveCustomCats();
-      buildCategorySelect();
-      buildLimitCategorySelect();
-      renderCustomCategories();
+      refreshCategoryUI();
     }
 
     function renderCustomCategories() {
@@ -1425,10 +1502,10 @@
         return;
       }
       container.innerHTML = '<ul class="custom-cat-list">' +
-        list.map(name => `
+        list.map((name, idx) => `
           <li class="custom-cat-item">
             <span>${escHtml(catLabel(name))}</span>
-            <button class="btn-icon delete" onclick="deleteCustomCategory('${type}', '${escHtml(name).replace(/'/g, '&#39;')}')" title="Удалить">✕</button>
+            <button class="btn-icon delete" onclick="deleteCustomCategory('${type}', ${idx})" title="Удалить">✕</button>
           </li>
         `).join('') +
         '</ul>';
@@ -1590,6 +1667,75 @@
       }
     }
 
+    // ─── История ─────────────────────────────────────────────────────────────
+
+    let currentView = 'main';
+    let histPeriod  = 'all';
+
+    function switchView(view) {
+      currentView = view;
+      document.getElementById('view-main').style.display    = view === 'main'    ? '' : 'none';
+      document.getElementById('view-history').style.display = view === 'history' ? '' : 'none';
+      document.getElementById('nav-main').classList.toggle('active',    view === 'main');
+      document.getElementById('nav-history').classList.toggle('active', view === 'history');
+      if (view === 'history') renderHistory();
+    }
+
+    function setHistPeriod(p) {
+      histPeriod = p;
+      ['all', 'month', 'week'].forEach(x =>
+        document.getElementById('hist-btn-' + x).classList.toggle('active', x === p)
+      );
+      renderHistory();
+    }
+
+    function renderHistory() {
+      let startStr, endStr;
+      if (histPeriod === 'all') {
+        startStr = '0000-00-00'; endStr = '9999-99-99';
+      } else {
+        ({ startStr, endStr } = getPeriodRange(histPeriod));
+      }
+
+      const filtered = transactions.filter(t => t.date >= startStr && t.date <= endStr);
+
+      if (filtered.length === 0) {
+        document.getElementById('history-content').innerHTML =
+          '<p style="font-size:0.88rem;color:var(--text-gray);padding:20px 0 8px">Нет транзакций за период</p>';
+        return;
+      }
+
+      const catMap = {};
+      filtered.forEach(t => {
+        if (!catMap[t.category]) catMap[t.category] = { type: t.type, total: 0, txs: [] };
+        catMap[t.category].total += t.amount;
+        catMap[t.category].txs.push(t);
+      });
+
+      const sorted = Object.entries(catMap).sort((a, b) => b[1].total - a[1].total);
+
+      document.getElementById('history-content').innerHTML = sorted.map(([cat, { type, total, txs }]) => {
+        const txsSorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+        const totalCls  = type === 'income' ? 'income' : 'expense';
+        const sign      = type === 'income' ? '+' : '−';
+        return `
+          <div class="hist-cat-block">
+            <div class="hist-cat-header">
+              <span class="hist-cat-name">${escHtml(catLabel(cat))}</span>
+              <span class="hist-cat-total ${totalCls}">${sign}${fmt(total)}</span>
+            </div>
+            ${txsSorted.map(t => `
+              <div class="hist-tx-row">
+                <span class="hist-tx-date">${fmtDate(t.date)}</span>
+                <span class="hist-tx-comment">${escHtml(t.comment || '—')}</span>
+                <span class="hist-tx-amount ${t.type}">${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }).join('');
+    }
+
     // ─── Главный рендер ──────────────────────────────────────────────────────
 
     function render() {
@@ -1599,6 +1745,7 @@
       renderDailyChart();
       renderLimits();
       renderReport();
+      if (currentView === 'history') renderHistory();
     }
 
     // ─── Инициализация ───────────────────────────────────────────────────────
