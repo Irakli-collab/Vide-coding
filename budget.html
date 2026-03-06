@@ -555,6 +555,32 @@
       margin-bottom: 12px;
     }
 
+    /* ─── Управление категориями ─── */
+    .cat-manage-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .cat-manage-row input { flex: 1; }
+    .cat-manage-row .btn-primary { width: auto; padding: 10px 16px; margin-top: 0; }
+
+    .custom-cat-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .custom-cat-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border: 1px solid #edf2f7;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
     /* ─── Тёмная тема ─── */
     body.dark {
       --bg: #0f1117;
@@ -605,6 +631,7 @@
     body.dark .report-btn    { background: #252836; }
     body.dark .report-btn:not(:last-child) { border-right-color: #2e3347; }
     body.dark .report-stat   { background: #252836; border-color: #2a2d3e; }
+    body.dark .custom-cat-item { background: #252836; border-color: #2a2d3e; }
 
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
@@ -698,6 +725,28 @@
         </form>
       </div>
 
+      <!-- Управление категориями -->
+      <div class="card">
+        <h2>Категории</h2>
+
+        <div class="form-group">
+          <label>Тип</label>
+          <div class="type-toggle">
+            <input type="radio" name="cat-type" id="cat-type-expense" value="expense" checked>
+            <label for="cat-type-expense">Расходы</label>
+            <input type="radio" name="cat-type" id="cat-type-income" value="income">
+            <label for="cat-type-income">Доходы</label>
+          </div>
+        </div>
+
+        <div class="cat-manage-row">
+          <input type="text" id="new-cat-input" placeholder="Название новой категории">
+          <button class="btn-primary" onclick="addCustomCategory()">Добавить</button>
+        </div>
+
+        <div id="custom-cat-list"></div>
+      </div>
+
       <!-- Аналитика -->
       <div class="card">
         <h2>Аналитика</h2>
@@ -785,6 +834,17 @@
       expense: ['Еда', 'Транспорт', 'Жильё', 'Здоровье', 'Развлечения', 'Одежда', 'Связь', 'Прочее']
     };
 
+    const CAT_EMOJI = {
+      'Зарплата': '💼', 'Фриланс': '💻', 'Подарок': '🎁', 'Инвестиции': '📈',
+      'Еда': '🍔', 'Транспорт': '🚗', 'Жильё': '🏠', 'Здоровье': '💊',
+      'Развлечения': '🎮', 'Одежда': '👗', 'Связь': '📱', 'Прочее': '📦'
+    };
+
+    function catLabel(name) {
+      const e = CAT_EMOJI[name];
+      return e ? `${e} ${name}` : name;
+    }
+
     function loadData() {
       try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
       catch { return []; }
@@ -809,6 +869,20 @@
     }
 
     let limits = loadLimits();
+
+    // ─── Пользовательские категории ──────────────────────────────────────────
+
+    const CUSTOM_CATS_KEY = 'budget_custom_categories';
+
+    function loadCustomCats() {
+      try { return JSON.parse(localStorage.getItem(CUSTOM_CATS_KEY)) || { income: [], expense: [] }; }
+      catch { return { income: [], expense: [] }; }
+    }
+    function saveCustomCats() {
+      localStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(customCats));
+    }
+
+    let customCats = loadCustomCats();
 
     // ─── Вспомогательные ────────────────────────────────────────────────────
 
@@ -843,12 +917,12 @@
     function buildCategorySelect() {
       const type  = document.querySelector('input[name="type"]:checked').value;
       const sel   = document.getElementById('category');
-      const cats  = CATEGORIES[type];
+      const cats  = [...CATEGORIES[type], ...customCats[type]];
 
       sel.innerHTML = '';
       cats.forEach(c => {
         const opt = document.createElement('option');
-        opt.value = c; opt.textContent = c;
+        opt.value = c; opt.textContent = catLabel(c);
         sel.appendChild(opt);
       });
 
@@ -965,7 +1039,7 @@
           <span class="tx-date">${fmtDate(t.date)}</span>
           <div class="tx-info">
             <span class="tx-category" id="cat-text-${t.id}">
-              ${escHtml(t.category)}
+              ${escHtml(catLabel(t.category))}
             </span>
             ${t.comment ? `<span class="tx-comment">${escHtml(t.comment)}</span>` : ''}
           </div>
@@ -1022,7 +1096,7 @@
         return `
         <div class="cat-row">
           <div>
-            <div class="cat-label">${escHtml(cat)}</div>
+            <div class="cat-label">${escHtml(catLabel(cat))}</div>
             <div class="cat-bar-wrap">
               <div class="cat-bar" style="width:${Math.round(sum / max * 100)}%"></div>
             </div>
@@ -1058,7 +1132,7 @@
         return `
         <div class="cat-row">
           <div>
-            <div class="cat-label">${escHtml(cat)}</div>
+            <div class="cat-label">${escHtml(catLabel(cat))}</div>
             <div class="cat-bar-wrap">
               <div class="cat-bar income" style="width:${Math.round(sum / max * 100)}%"></div>
             </div>
@@ -1237,14 +1311,10 @@
     // ─── Функции лимитов ─────────────────────────────────────────────────────
 
     function buildLimitCategorySelect() {
-      const custom = transactions
-        .filter(t => t.type === 'expense')
-        .map(t => t.category)
-        .filter(c => !CATEGORIES.expense.includes(c));
-      const all = [...CATEGORIES.expense, ...new Set(custom)];
+      const all = [...CATEGORIES.expense, ...customCats.expense];
       const sel = document.getElementById('limit-category');
       const cur = sel.value;
-      sel.innerHTML = all.map(c => `<option value="${escHtml(c)}"${c === cur ? ' selected' : ''}>${escHtml(c)}</option>`).join('');
+      sel.innerHTML = all.map(c => `<option value="${escHtml(c)}"${c === cur ? ' selected' : ''}>${escHtml(catLabel(c))}</option>`).join('');
     }
 
     function applyLimit() {
@@ -1292,7 +1362,7 @@
           ${i > 0 ? '<div class="divider"></div>' : ''}
           <div class="limit-row">
             <div class="limit-row-header">
-              <span class="limit-label">${escHtml(cat)}</span>
+              <span class="limit-label">${escHtml(catLabel(cat))}</span>
               <span class="limit-amounts">
                 ${fmt(spent)} / ${fmt(lim)}
                 <button class="btn-icon delete" onclick="deleteLimit('${escHtml(cat).replace(/'/g, '&#39;')}')" title="Удалить лимит">✕</button>
@@ -1305,6 +1375,50 @@
           </div>
         `;
       }).join('');
+    }
+
+    // ─── Управление пользовательскими категориями ────────────────────────────
+
+    function addCustomCategory() {
+      const type  = document.querySelector('input[name="cat-type"]:checked').value;
+      const input = document.getElementById('new-cat-input');
+      const name  = input.value.trim();
+      if (!name) return;
+      if (CATEGORIES[type].includes(name) || customCats[type].includes(name)) {
+        input.value = ''; return;
+      }
+      customCats[type].push(name);
+      saveCustomCats();
+      input.value = '';
+      buildCategorySelect();
+      buildLimitCategorySelect();
+      renderCustomCategories();
+    }
+
+    function deleteCustomCategory(type, name) {
+      customCats[type] = customCats[type].filter(c => c !== name);
+      saveCustomCats();
+      buildCategorySelect();
+      buildLimitCategorySelect();
+      renderCustomCategories();
+    }
+
+    function renderCustomCategories() {
+      const type = document.querySelector('input[name="cat-type"]:checked').value;
+      const list = customCats[type];
+      const container = document.getElementById('custom-cat-list');
+      if (list.length === 0) {
+        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray);padding:8px 0">Нет пользовательских категорий</p>';
+        return;
+      }
+      container.innerHTML = '<ul class="custom-cat-list">' +
+        list.map(name => `
+          <li class="custom-cat-item">
+            <span>${escHtml(catLabel(name))}</span>
+            <button class="btn-icon delete" onclick="deleteCustomCategory('${type}', '${escHtml(name).replace(/'/g, '&#39;')}')" title="Удалить">✕</button>
+          </li>
+        `).join('') +
+        '</ul>';
     }
 
     // ─── Отчёт ───────────────────────────────────────────────────────────────
@@ -1356,7 +1470,7 @@
         return `
           <div class="cat-row">
             <div>
-              <div class="cat-label">${escHtml(cat)}</div>
+              <div class="cat-label">${escHtml(catLabel(cat))}</div>
               <div class="cat-bar-wrap">
                 <div class="${barCls}" style="width:${Math.round(sum/max*100)}%"></div>
               </div>
@@ -1484,11 +1598,22 @@
     // Выбор своей категории
     document.getElementById('category').addEventListener('change', onCategoryChange);
 
+    // Переключение типа в карточке категорий
+    document.querySelectorAll('input[name="cat-type"]').forEach(r =>
+      r.addEventListener('change', renderCustomCategories)
+    );
+
+    // Enter в поле новой категории
+    document.getElementById('new-cat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); }
+    });
+
     // Дата по умолчанию — сегодня
     document.getElementById('tx-date').value = today();
 
     buildCategorySelect();
     buildLimitCategorySelect();
+    renderCustomCategories();
     applyTheme(localStorage.getItem('budget_theme') === 'dark');
     render();
   </script>
