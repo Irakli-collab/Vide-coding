@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Бюджет</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    /* ─── Базовые переменные ─── */
+    :root {
+      --bg: #f0f4f8;
+      --card: #ffffff;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --text-dark: #1a202c;
+      --text-gray: #4a5568;
+      --green: #16a34a;
+      --red: #dc2626;
+      --radius: 16px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.10);
+      --font: 'Segoe UI', Arial, sans-serif;
+    }
+
+    /* ─── Сброс и базовые стили ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: var(--font);
+      color: var(--text-dark);
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    /* ─── Карточка-обёртка ─── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px 32px;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 20px;
+    }
+
+    /* ─── Карточка баланса ─── */
+    .balance-card {
+      background: #3d3a8c;
+      color: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 32px;
+      text-align: center;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .theme-toggle {
+      position: absolute;
+      top: 12px; right: 16px;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 50%;
+      width: 32px; height: 32px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .theme-toggle:hover { background: rgba(255,255,255,0.28); }
+
+    .balance-label {
+      font-size: 0.75rem;
+      opacity: 0.7;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .balance-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .balance-row {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+    }
+
+    .balance-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .balance-stat-label {
+      font-size: 0.72rem;
+      opacity: 0.7;
+    }
+
+    .balance-stat-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    /* ─── Двухколоночный грид ─── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ─── Форма ─── */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-gray);
+    }
+
+    input[type="number"],
+    input[type="date"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      color: var(--text-dark);
+      background: #f8fafc;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary);
+      background: #fff;
+    }
+
+    /* Тип транзакции — радио-кнопки в виде сегментов */
+    .type-toggle {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #e2e8f0;
+    }
+
+    .type-toggle input[type="radio"] { display: none; }
+
+    .type-toggle label {
+      flex: 1;
+      text-align: center;
+      padding: 9px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-gray);
+      background: #f8fafc;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .type-toggle input[type="radio"]:checked + label {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .type-toggle label:first-of-type {
+      border-right: 1px solid #e2e8f0;
+    }
+
+    /* Поле своей категории — скрыто по умолчанию */
+    #custom-category-wrap { display: none; margin-top: 8px; }
+
+    /* Кнопка добавить */
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 4px;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+
+    /* ─── Список транзакций ─── */
+    .tx-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 560px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .tx-list::-webkit-scrollbar { width: 4px; }
+    .tx-list::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
+
+    .tx-item {
+      display: grid;
+      grid-template-columns: 72px 1fr auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #edf2f7;
+      transition: background 0.15s;
+    }
+
+    .tx-item:hover { background: #f1f5f9; }
+
+    .tx-date {
+      font-size: 0.78rem;
+      color: var(--text-gray);
+      white-space: nowrap;
+    }
+
+    .tx-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .tx-category {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tx-comment {
+      font-size: 0.78rem;
+      color: var(--text-gray);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tx-amount {
+      font-size: 1rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .tx-amount.income { color: var(--green); }
+    .tx-amount.expense { color: var(--red); }
+
+    .tx-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: var(--text-gray);
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-icon:hover { background: #e2e8f0; color: var(--text-dark); }
+    .btn-icon.delete:hover { background: #fee2e2; color: var(--red); }
+
+    /* Инлайн-редактирование категории */
+    .edit-input {
+      padding: 2px 6px;
+      border: 1.5px solid var(--primary);
+      border-radius: 5px;
+      font-family: var(--font);
+      font-size: 0.88rem;
+      width: 120px;
+      outline: none;
+    }
+
+    .tx-empty {
+      text-align: center;
+      color: var(--text-gray);
+      font-size: 0.9rem;
+      padding: 32px 0;
+    }
+
+    /* ─── Аналитика ─── */
+    .analytics-section { margin-bottom: 20px; }
+    .analytics-section:last-child { margin-bottom: 0; }
+
+    .analytics-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-gray);
+      margin-bottom: 12px;
+    }
+
+    .cat-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .cat-label {
+      font-size: 0.85rem;
+      color: var(--text-dark);
+      margin-bottom: 4px;
+    }
+
+    .cat-bar-wrap {
+      background: #e9edf2;
+      border-radius: 99px;
+      height: 7px;
+      overflow: hidden;
+    }
+
+    .cat-bar {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+
+    .cat-bar.income { background: var(--green); }
+
+    .cat-amount {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      white-space: nowrap;
+    }
+
+    .compare-block {
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #edf2f7;
+    }
+
+    .compare-block p { font-size: 0.88rem; color: var(--text-gray); margin-bottom: 4px; }
+    .compare-result { font-size: 0.95rem; font-weight: 600; }
+    .compare-result.up { color: var(--red); }
+    .compare-result.down { color: var(--green); }
+    .compare-result.same { color: var(--text-gray); }
+
+    .divider {
+      height: 1px;
+      background: #edf2f7;
+      margin: 20px 0;
+    }
+
+    /* ─── График ─── */
+    .chart-card { margin-bottom: 24px; }
+    .chart-wrap { position: relative; height: 220px; }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .chart-header h2 { margin-bottom: 0; }
+
+    .chart-toggle {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+    .chart-toggle-btn {
+      padding: 6px 16px;
+      border: none;
+      background: #f8fafc;
+      color: var(--text-gray);
+      font-family: var(--font);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .chart-toggle-btn:first-child { border-right: 1px solid #e2e8f0; }
+    .chart-toggle-btn.active { background: var(--primary); color: #fff; }
+    .chart-toggle-btn.active.income { background: var(--green); }
+
+    /* ─── Вкладки ─── */
+    .tabs {
+      display: flex;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 6px;
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      font-family: var(--font);
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: var(--text-gray);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; }
+
+    /* ─── Лимиты ─── */
+    .limit-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      margin-bottom: 24px;
+      align-items: end;
+    }
+    .limit-row { margin-bottom: 4px; }
+    .limit-row-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .limit-label { font-size: 0.9rem; font-weight: 500; }
+    .limit-amounts { font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: center; gap: 6px; }
+    .limit-progress-wrap {
+      background: #e9edf2;
+      border-radius: 99px;
+      height: 9px;
+      overflow: hidden;
+      margin-bottom: 5px;
+    }
+    .limit-progress {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+    .limit-progress.ok   { background: var(--primary); }
+    .limit-progress.warn { background: #f59e0b; }
+    .limit-progress.over { background: var(--red); }
+    .limit-status { font-size: 0.78rem; font-weight: 600; }
+    .limit-status.ok   { color: var(--primary); }
+    .limit-status.warn { color: #f59e0b; }
+    .limit-status.over { color: var(--red); }
+
+    /* ─── Отчёт ─── */
+    .report-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .report-header h2 { margin-bottom: 0; }
+
+    .report-toggle {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+    .report-btn {
+      padding: 6px 16px;
+      border: none;
+      background: #f8fafc;
+      color: var(--text-gray);
+      font-family: var(--font);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .report-btn:not(:last-child) { border-right: 1px solid #e2e8f0; }
+    .report-btn.active { background: var(--primary); color: #fff; }
+
+    .report-period-label {
+      font-size: 0.8rem;
+      color: var(--text-gray);
+      margin-bottom: 20px;
+    }
+
+    .report-summary {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .report-stat {
+      flex: 1;
+      background: #f8fafc;
+      border: 1px solid #edf2f7;
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .report-stat-label {
+      font-size: 0.73rem;
+      color: var(--text-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 6px;
+    }
+    .report-stat-value { font-size: 1.05rem; font-weight: 700; }
+    .report-stat-value.income-val  { color: var(--green); }
+    .report-stat-value.expense-val { color: var(--red); }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+    .report-col-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-gray);
+      margin-bottom: 12px;
+    }
+
+    /* ─── Управление категориями ─── */
+    .cat-manage-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .cat-manage-row input { flex: 1; }
+    .cat-manage-row .btn-primary { width: auto; padding: 10px 16px; margin-top: 0; }
+
+    .custom-cat-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .custom-cat-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border: 1px solid #edf2f7;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    /* ─── Тёмная тема ─── */
+    body.dark {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --text-dark: #e8eaf0;
+      --text-gray: #8896ab;
+      --shadow: 0 4px 24px rgba(0,0,0,0.45);
+    }
+
+    body.dark input[type="number"],
+    body.dark input[type="date"],
+    body.dark input[type="text"],
+    body.dark select {
+      background: #252836;
+      border-color: #2e3347;
+      color: var(--text-dark);
+      color-scheme: dark;
+    }
+    body.dark input:focus,
+    body.dark select:focus { background: #1e2233; border-color: var(--primary); }
+
+    body.dark .type-toggle { border-color: #2e3347; }
+    body.dark .type-toggle label { background: #252836; color: var(--text-gray); }
+    body.dark .type-toggle label:first-of-type { border-right-color: #2e3347; }
+
+    body.dark .tx-item { background: #252836; border-color: #2a2d3e; }
+    body.dark .tx-item:hover { background: #2a2d3e; }
+    body.dark .tx-list::-webkit-scrollbar-thumb { background: #3a3f55; }
+
+    body.dark .cat-bar-wrap { background: #2a2d3e; }
+    body.dark .compare-block { background: #252836; border-color: #2a2d3e; }
+    body.dark .divider { background: #2a2d3e; }
+
+    body.dark .chart-toggle { border-color: #2e3347; }
+    body.dark .chart-toggle-btn { background: #252836; }
+    body.dark .chart-toggle-btn:first-child { border-right-color: #2e3347; }
+
+    body.dark .limit-progress-wrap { background: #2a2d3e; }
+
+    body.dark .btn-icon:hover { background: #2a2d3e; color: var(--text-dark); }
+    body.dark .btn-icon.delete:hover { background: #3d1f1f; color: var(--red); }
+    body.dark .edit-input { background: #252836; color: var(--text-dark); border-color: var(--primary); }
+
+    body.dark .tabs { background: #1a1d2e; }
+    body.dark .tab-btn { color: var(--text-gray); }
+
+    body.dark .report-toggle { border-color: #2e3347; }
+    body.dark .report-btn    { background: #252836; }
+    body.dark .report-btn:not(:last-child) { border-right-color: #2e3347; }
+    body.dark .report-stat   { background: #252836; border-color: #2a2d3e; }
+    body.dark .custom-cat-item { background: #252836; border-color: #2a2d3e; }
+
+    /* ─── Адаптив ─── */
+    @media (max-width: 780px) {
+      .main-grid      { grid-template-columns: 1fr; }
+      .balance-row    { gap: 28px; }
+      .balance-amount { font-size: 2rem; }
+      .limit-form     { grid-template-columns: 1fr; }
+      .report-grid    { grid-template-columns: 1fr; }
+      .report-summary { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Баланс -->
+  <div class="balance-card">
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Сменить тему">🌙</button>
+    <div class="balance-label">Общий баланс</div>
+    <div class="balance-amount" id="balance-amount">₽ 0</div>
+    <div class="balance-row">
+      <div class="balance-stat">
+        <span class="balance-stat-label">Доходы</span>
+        <span class="balance-stat-value" id="total-income">₽ 0</span>
+      </div>
+      <div class="balance-stat">
+        <span class="balance-stat-label">Расходы</span>
+        <span class="balance-stat-value" id="total-expense">₽ 0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- График по дням -->
+  <div class="card chart-card">
+    <div class="chart-header">
+      <h2><span id="chart-type-label">Расходы</span> по дням — <span id="chart-month-label"></span></h2>
+      <div class="chart-toggle">
+        <button class="chart-toggle-btn active" id="chart-btn-expense" onclick="setChartMode('expense')">Расходы</button>
+        <button class="chart-toggle-btn" id="chart-btn-income" onclick="setChartMode('income')">Доходы</button>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="daily-chart"></canvas>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- Левая колонка -->
+    <div class="left-col">
+
+      <!-- Форма добавления -->
+      <div class="card">
+        <h2>Добавить транзакцию</h2>
+
+        <form id="tx-form">
+
+          <div class="form-group">
+            <label>Тип</label>
+            <div class="type-toggle">
+              <input type="radio" name="type" id="type-income" value="income">
+              <label for="type-income">Доход</label>
+              <input type="radio" name="type" id="type-expense" value="expense" checked>
+              <label for="type-expense">Расход</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="amount">Сумма (₽)</label>
+            <input type="number" id="amount" min="0.01" step="0.01" placeholder="0.00" required>
+          </div>
+
+          <div class="form-group">
+            <label for="category">Категория</label>
+            <select id="category"></select>
+            <div id="custom-category-wrap">
+              <input type="text" id="custom-category" placeholder="Введите категорию">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="tx-date">Дата</label>
+            <input type="date" id="tx-date" required>
+          </div>
+
+          <div class="form-group">
+            <label for="comment">Комментарий</label>
+            <input type="text" id="comment" placeholder="Необязательно">
+          </div>
+
+          <button type="submit" class="btn-primary">Добавить</button>
+        </form>
+      </div>
+
+      <!-- Управление категориями -->
+      <div class="card">
+        <h2>Категории</h2>
+
+        <div class="form-group">
+          <label>Тип</label>
+          <div class="type-toggle">
+            <input type="radio" name="cat-type" id="cat-type-expense" value="expense" checked>
+            <label for="cat-type-expense">Расходы</label>
+            <input type="radio" name="cat-type" id="cat-type-income" value="income">
+            <label for="cat-type-income">Доходы</label>
+          </div>
+        </div>
+
+        <div class="cat-manage-row">
+          <input type="text" id="new-cat-input" placeholder="Название новой категории">
+          <button class="btn-primary" onclick="addCustomCategory()">Добавить</button>
+        </div>
+
+        <div id="custom-cat-list"></div>
+      </div>
+
+      <!-- Аналитика -->
+      <div class="card">
+        <h2>Аналитика</h2>
+
+        <div class="analytics-section">
+          <div class="analytics-title">Топ расходов — этот месяц</div>
+          <div id="top-categories"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="analytics-section">
+          <div class="analytics-title">Топ доходов — этот месяц</div>
+          <div id="top-income-categories"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="analytics-section">
+          <div class="analytics-title">Сравнение с прошлым месяцем</div>
+          <div id="month-compare"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Правая колонка: транзакции + лимиты -->
+    <div style="display:flex; flex-direction:column; gap:24px;">
+
+      <div class="card">
+        <h2>Транзакции</h2>
+        <ul class="tx-list" id="tx-list"></ul>
+      </div>
+
+      <div class="card">
+        <h2>Лимиты по категориям</h2>
+
+        <div class="limit-form">
+          <div>
+            <label for="limit-category">Категория</label>
+            <select id="limit-category"></select>
+          </div>
+          <div>
+            <label for="limit-amount">Лимит (₽)</label>
+            <input type="number" id="limit-amount" min="1" step="1" placeholder="Сумма лимита">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn-primary" onclick="applyLimit()" style="margin-top:0">Установить</button>
+          </div>
+        </div>
+
+        <div id="limits-list"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Отчёт -->
+  <div class="card" style="margin-top:24px">
+    <div class="report-header">
+      <div>
+        <h2 style="margin-bottom:4px">Отчёт</h2>
+        <div class="report-period-label" id="report-period-label"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="report-toggle">
+          <button class="report-btn" id="report-btn-week"  onclick="setReportPeriod('week')">Неделя</button>
+          <button class="report-btn active" id="report-btn-month" onclick="setReportPeriod('month')">Месяц</button>
+          <button class="report-btn" id="report-btn-year"  onclick="setReportPeriod('year')">Год</button>
+        </div>
+        <button class="btn-icon" id="copy-report-btn" onclick="copyReport()" title="Копировать отчёт" style="font-size:1.1rem;padding:6px 8px">📋</button>
+      </div>
+    </div>
+    <div id="report-content"></div>
+  </div>
+
+  <script>
+    // ─── Данные ───────────────────────────────────────────────────────────────
+
+    const STORAGE_KEY = 'budget_transactions';
+
+    const CATEGORIES = {
+      income:  ['Зарплата', 'Фриланс', 'Подарок', 'Инвестиции', 'Прочее'],
+      expense: ['Еда', 'Транспорт', 'Жильё', 'Здоровье', 'Развлечения', 'Одежда', 'Связь', 'Прочее']
+    };
+
+    const CAT_EMOJI = {
+      'Зарплата': '💼', 'Фриланс': '💻', 'Подарок': '🎁', 'Инвестиции': '📈',
+      'Еда': '🍔', 'Транспорт': '🚗', 'Жильё': '🏠', 'Здоровье': '💊',
+      'Развлечения': '🎮', 'Одежда': '👗', 'Связь': '📱', 'Прочее': '📦'
+    };
+
+    function catLabel(name) {
+      const e = CAT_EMOJI[name];
+      return e ? `${e} ${name}` : name;
+    }
+
+    function loadData() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+      catch { return []; }
+    }
+
+    function saveData(transactions) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    }
+
+    let transactions = loadData();
+
+    // ─── Лимиты ───────────────────────────────────────────────────────────────
+
+    const LIMITS_KEY = 'budget_limits';
+
+    function loadLimits() {
+      try { return JSON.parse(localStorage.getItem(LIMITS_KEY)) || {}; }
+      catch { return {}; }
+    }
+    function saveLimits() {
+      localStorage.setItem(LIMITS_KEY, JSON.stringify(limits));
+    }
+
+    let limits = loadLimits();
+
+    // ─── Пользовательские категории ──────────────────────────────────────────
+
+    const CUSTOM_CATS_KEY = 'budget_custom_categories';
+
+    function loadCustomCats() {
+      try { return JSON.parse(localStorage.getItem(CUSTOM_CATS_KEY)) || { income: [], expense: [] }; }
+      catch { return { income: [], expense: [] }; }
+    }
+    function saveCustomCats() {
+      localStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(customCats));
+    }
+
+    let customCats = loadCustomCats();
+
+    // ─── Вспомогательные ────────────────────────────────────────────────────
+
+    function fmt(amount) {
+      return '₽\u00a0' + amount.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    function fmtDate(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      return `${d}.${m}.${y.slice(2)}`;
+    }
+
+    function today() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function monthKey(dateStr) {
+      return dateStr.slice(0, 7); // "YYYY-MM"
+    }
+
+    function currentMonth() { return today().slice(0, 7); }
+
+    function prevMonth() {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - 1);
+      return d.toISOString().slice(0, 7);
+    }
+
+    // ─── Категории в форме ───────────────────────────────────────────────────
+
+    function buildCategorySelect() {
+      const type  = document.querySelector('input[name="type"]:checked').value;
+      const sel   = document.getElementById('category');
+      const cats  = [...CATEGORIES[type], ...customCats[type]];
+
+      sel.innerHTML = '';
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = catLabel(c);
+        sel.appendChild(opt);
+      });
+
+      const custom = document.createElement('option');
+      custom.value = '__custom__'; custom.textContent = '✎ Своя...';
+      sel.appendChild(custom);
+
+      onCategoryChange();
+    }
+
+    function onCategoryChange() {
+      const wrap = document.getElementById('custom-category-wrap');
+      wrap.style.display = document.getElementById('category').value === '__custom__' ? 'block' : 'none';
+    }
+
+    // ─── Добавление транзакции ───────────────────────────────────────────────
+
+    document.getElementById('tx-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const amount = parseFloat(document.getElementById('amount').value);
+      if (!amount || amount <= 0) return;
+
+      const type     = document.querySelector('input[name="type"]:checked').value;
+      const catSel   = document.getElementById('category').value;
+      const category = catSel === '__custom__'
+        ? (document.getElementById('custom-category').value.trim() || 'Прочее')
+        : catSel;
+      const date    = document.getElementById('tx-date').value;
+      const comment = document.getElementById('comment').value.trim();
+
+      transactions.unshift({ id: Date.now(), amount, type, category, date, comment });
+      saveData(transactions);
+      render();
+
+      this.reset();
+      document.getElementById('tx-date').value = today();
+      buildCategorySelect();
+    });
+
+    // ─── Удаление ────────────────────────────────────────────────────────────
+
+    function deleteTransaction(id) {
+      transactions = transactions.filter(t => t.id !== id);
+      saveData(transactions);
+      render();
+    }
+
+    // ─── Редактирование категории (inline) ───────────────────────────────────
+
+    function startEditCategory(id) {
+      const tx = transactions.find(t => t.id === id);
+      if (!tx) return;
+
+      const span = document.getElementById('cat-text-' + id);
+      const orig = tx.category;
+
+      span.innerHTML = `
+        <input class="edit-input" id="edit-input-${id}" value="${orig}" />
+        <button class="btn-icon" onclick="saveEditCategory(${id})" title="Сохранить">✓</button>
+        <button class="btn-icon" onclick="render()" title="Отмена">✕</button>
+      `;
+
+      const inp = document.getElementById('edit-input-' + id);
+      inp.focus();
+      inp.select();
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveEditCategory(id);
+        if (e.key === 'Escape') render();
+      });
+    }
+
+    function saveEditCategory(id) {
+      const inp = document.getElementById('edit-input-' + id);
+      if (!inp) return;
+      const value = inp.value.trim();
+      if (value) {
+        const tx = transactions.find(t => t.id === id);
+        if (tx) tx.category = value;
+        saveData(transactions);
+      }
+      render();
+    }
+
+    // ─── Рендер баланса ──────────────────────────────────────────────────────
+
+    function renderBalance() {
+      let income = 0, expense = 0;
+      transactions.forEach(t => {
+        if (t.type === 'income') income += t.amount;
+        else expense += t.amount;
+      });
+      const balance = income - expense;
+
+      document.getElementById('balance-amount').textContent = fmt(balance);
+      document.getElementById('total-income').textContent   = fmt(income);
+      document.getElementById('total-expense').textContent  = fmt(expense);
+    }
+
+    // ─── Рендер транзакций ───────────────────────────────────────────────────
+
+    function renderTransactions() {
+      const list = document.getElementById('tx-list');
+
+      if (transactions.length === 0) {
+        list.innerHTML = '<li class="tx-empty">Транзакций пока нет.<br>Добавьте первую запись слева.</li>';
+        return;
+      }
+
+      const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+      list.innerHTML = sorted.map(t => `
+        <li class="tx-item">
+          <span class="tx-date">${fmtDate(t.date)}</span>
+          <div class="tx-info">
+            <span class="tx-category" id="cat-text-${t.id}">
+              ${escHtml(catLabel(t.category))}
+            </span>
+            ${t.comment ? `<span class="tx-comment">${escHtml(t.comment)}</span>` : ''}
+          </div>
+          <span class="tx-amount ${t.type}">
+            ${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}
+          </span>
+          <div class="tx-actions">
+            <button class="btn-icon" onclick="startEditCategory(${t.id})" title="Редактировать категорию">✎</button>
+            <button class="btn-icon delete" onclick="deleteTransaction(${t.id})" title="Удалить">✕</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ─── Рендер аналитики ────────────────────────────────────────────────────
+
+    function renderAnalytics() {
+      renderTopCategories();
+      renderTopIncomeCategories();
+      renderMonthCompare();
+    }
+
+    function renderTopCategories() {
+      const cm = currentMonth();
+      const thisMonthExpenses = transactions.filter(t => t.type === 'expense' && monthKey(t.date) === cm);
+
+      const container = document.getElementById('top-categories');
+
+      if (thisMonthExpenses.length === 0) {
+        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray)">Нет расходов в этом месяце</p>';
+        return;
+      }
+
+      // Группируем по категории
+      const map = {};
+      thisMonthExpenses.forEach(t => {
+        map[t.category] = (map[t.category] || 0) + t.amount;
+      });
+
+      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const max    = sorted[0][1];
+      const total  = thisMonthExpenses.reduce((s, t) => s + t.amount, 0);
+
+      container.innerHTML = sorted.map(([cat, sum]) => {
+        const pct = Math.round(sum / total * 100);
+        return `
+        <div class="cat-row">
+          <div>
+            <div class="cat-label">${escHtml(catLabel(cat))}</div>
+            <div class="cat-bar-wrap">
+              <div class="cat-bar" style="width:${Math.round(sum / max * 100)}%"></div>
+            </div>
+          </div>
+          <div class="cat-amount">${fmt(sum)} <span style="font-weight:400;color:var(--text-gray)">(${pct}%)</span></div>
+        </div>
+      `;
+      }).join('');
+    }
+
+    function renderTopIncomeCategories() {
+      const cm = currentMonth();
+      const thisMonthIncome = transactions.filter(t => t.type === 'income' && monthKey(t.date) === cm);
+
+      const container = document.getElementById('top-income-categories');
+
+      if (thisMonthIncome.length === 0) {
+        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray)">Нет доходов в этом месяце</p>';
+        return;
+      }
+
+      const map = {};
+      thisMonthIncome.forEach(t => {
+        map[t.category] = (map[t.category] || 0) + t.amount;
+      });
+
+      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const max    = sorted[0][1];
+      const total  = thisMonthIncome.reduce((s, t) => s + t.amount, 0);
+
+      container.innerHTML = sorted.map(([cat, sum]) => {
+        const pct = Math.round(sum / total * 100);
+        return `
+        <div class="cat-row">
+          <div>
+            <div class="cat-label">${escHtml(catLabel(cat))}</div>
+            <div class="cat-bar-wrap">
+              <div class="cat-bar income" style="width:${Math.round(sum / max * 100)}%"></div>
+            </div>
+          </div>
+          <div class="cat-amount">${fmt(sum)} <span style="font-weight:400;color:var(--text-gray)">(${pct}%)</span></div>
+        </div>
+      `;
+      }).join('');
+    }
+
+    function renderMonthCompare() {
+      const cm = currentMonth();
+      const pm = prevMonth();
+
+      const sumExpenses = (month) =>
+        transactions
+          .filter(t => t.type === 'expense' && monthKey(t.date) === month)
+          .reduce((s, t) => s + t.amount, 0);
+
+      const curr = sumExpenses(cm);
+      const prev = sumExpenses(pm);
+
+      const container = document.getElementById('month-compare');
+
+      let html = `<div class="compare-block">`;
+      html += `<p>Расходы этого месяца: <strong>${fmt(curr)}</strong></p>`;
+
+      if (prev === 0) {
+        html += `<p>Расходы прошлого месяца: <strong>—</strong></p>`;
+        html += `<div class="compare-result same">Нет данных за прошлый месяц</div>`;
+      } else {
+        html += `<p>Расходы прошлого месяца: <strong>${fmt(prev)}</strong></p>`;
+        const delta = curr - prev;
+        const pct   = Math.abs(Math.round(delta / prev * 100));
+        if (delta > 0) {
+          html += `<div class="compare-result up">↑ Рост на ${pct}% относительно прошлого месяца</div>`;
+        } else if (delta < 0) {
+          html += `<div class="compare-result down">↓ Снижение на ${pct}% относительно прошлого месяца</div>`;
+        } else {
+          html += `<div class="compare-result same">Расходы не изменились</div>`;
+        }
+      }
+
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    // ─── График по дням ──────────────────────────────────────────────────────
+
+    let dailyChart = null;
+    let chartMode    = 'expense'; // 'expense' | 'income'
+    let reportPeriod = 'month';   // 'week' | 'month' | 'year'
+
+    function setChartMode(mode) {
+      chartMode = mode;
+      document.getElementById('chart-btn-expense').className =
+        'chart-toggle-btn' + (mode === 'expense' ? ' active' : '');
+      document.getElementById('chart-btn-income').className =
+        'chart-toggle-btn' + (mode === 'income' ? ' active income' : '');
+      renderDailyChart();
+    }
+
+    function renderDailyChart() {
+      const isExpense = chartMode === 'expense';
+      const isDark = document.body.classList.contains('dark');
+      const now  = new Date();
+      const year = now.getFullYear();
+      const mon  = now.getMonth();
+      const cm   = currentMonth();
+      const days = new Date(year, mon + 1, 0).getDate();
+
+      document.getElementById('chart-type-label').textContent = isExpense ? 'Расходы' : 'Доходы';
+      document.getElementById('chart-month-label').textContent =
+        now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+
+      const dayTotals = new Array(days).fill(0);
+      transactions
+        .filter(t => t.type === chartMode && monthKey(t.date) === cm)
+        .forEach(t => {
+          const day = parseInt(t.date.slice(8, 10), 10) - 1;
+          if (day >= 0 && day < days) dayTotals[day] += t.amount;
+        });
+
+      const labels = Array.from({ length: days }, (_, i) => i + 1);
+      const today_day = now.getDate();
+
+      const solidColor = isExpense ? 'rgba(79,70,229,0.90)' : 'rgba(22,163,74,0.90)';
+      const fadedColor = isExpense ? 'rgba(79,70,229,0.45)' : 'rgba(22,163,74,0.45)';
+      const hoverColor = isExpense ? 'rgba(67,56,202,0.95)'  : 'rgba(15,130,60,0.95)';
+
+      const bgColors    = labels.map(d => d === today_day ? solidColor : fadedColor);
+      const hoverColors = labels.map(() => hoverColor);
+
+      const canvas = document.getElementById('daily-chart');
+
+      if (dailyChart) {
+        dailyChart.data.labels                               = labels;
+        dailyChart.data.datasets[0].data                    = dayTotals;
+        dailyChart.data.datasets[0].label                   = isExpense ? 'Расходы' : 'Доходы';
+        dailyChart.data.datasets[0].backgroundColor         = bgColors;
+        dailyChart.data.datasets[0].hoverBackgroundColor    = hoverColors;
+        dailyChart.update();
+        return;
+      }
+
+      dailyChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: isExpense ? 'Расходы' : 'Доходы',
+            data: dayTotals,
+            backgroundColor: bgColors,
+            hoverBackgroundColor: hoverColors,
+            borderRadius: 5,
+            borderSkipped: false,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: ctx => `${ctx[0].label} ${now.toLocaleString('ru-RU', { month: 'long' })}`,
+                label: ctx => ctx.parsed.y > 0 ? ' ' + fmt(ctx.parsed.y) : ' —'
+              },
+              backgroundColor: isDark ? '#252836' : '#1a202c',
+              titleColor:       isDark ? '#8896ab' : '#a0aec0',
+              bodyColor: '#fff',
+              padding: 10,
+              cornerRadius: 8,
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              border: { display: false },
+              ticks: {
+                color: isDark ? '#8896ab' : '#718096',
+                font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
+                callback: (_, i) => (i + 1) % 5 === 1 || (i + 1) === days ? i + 1 : ''
+              }
+            },
+            y: {
+              grid: { color: isDark ? '#2a2d3e' : '#edf2f7' },
+              border: { display: false, dash: [4, 4] },
+              ticks: {
+                color: isDark ? '#8896ab' : '#718096',
+                font: { family: "'Segoe UI', Arial, sans-serif", size: 11 },
+                callback: v => v === 0 ? '0' : (v >= 1000 ? (v / 1000).toFixed(0) + 'к' : v)
+              },
+              beginAtZero: true,
+            }
+          }
+        }
+      });
+    }
+
+    // ─── Тема ────────────────────────────────────────────────────────────────
+
+    function applyTheme(dark) {
+      document.body.classList.toggle('dark', dark);
+      document.getElementById('theme-toggle').textContent = dark ? '☀️' : '🌙';
+      if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
+      renderDailyChart();
+    }
+
+    function toggleTheme() {
+      const dark = !document.body.classList.contains('dark');
+      localStorage.setItem('budget_theme', dark ? 'dark' : 'light');
+      applyTheme(dark);
+    }
+
+    // ─── Функции лимитов ─────────────────────────────────────────────────────
+
+    function buildLimitCategorySelect() {
+      const all = [...CATEGORIES.expense, ...customCats.expense];
+      const sel = document.getElementById('limit-category');
+      const cur = sel.value;
+      sel.innerHTML = all.map(c => `<option value="${escHtml(c)}"${c === cur ? ' selected' : ''}>${escHtml(catLabel(c))}</option>`).join('');
+    }
+
+    function applyLimit() {
+      const cat = document.getElementById('limit-category').value;
+      const amt = parseFloat(document.getElementById('limit-amount').value);
+      if (!cat || !amt || amt <= 0) return;
+      limits[cat] = amt;
+      saveLimits();
+      document.getElementById('limit-amount').value = '';
+      renderLimits();
+    }
+
+    function deleteLimit(cat) {
+      delete limits[cat];
+      saveLimits();
+      renderLimits();
+    }
+
+    function renderLimits() {
+      buildLimitCategorySelect();
+      const cm = currentMonth();
+      const spending = {};
+      transactions
+        .filter(t => t.type === 'expense' && monthKey(t.date) === cm)
+        .forEach(t => { spending[t.category] = (spending[t.category] || 0) + t.amount; });
+
+      const container = document.getElementById('limits-list');
+      const entries = Object.entries(limits);
+
+      if (entries.length === 0) {
+        container.innerHTML = '<p style="font-size:0.88rem;color:var(--text-gray);padding:12px 0">Лимиты не заданы. Выберите категорию и укажите сумму выше.</p>';
+        return;
+      }
+
+      container.innerHTML = entries.map(([cat, lim], i) => {
+        const spent = spending[cat] || 0;
+        const real  = lim > 0 ? Math.round(spent / lim * 100) : 0;
+        const pct   = Math.min(real, 100);
+        const state = real >= 100 ? 'over' : real >= 80 ? 'warn' : 'ok';
+        const left  = lim - spent;
+        const statusText = real >= 100
+          ? `⚠ Превышен на ${fmt(Math.abs(left))}`
+          : `Осталось ${fmt(left)}`;
+        return `
+          ${i > 0 ? '<div class="divider"></div>' : ''}
+          <div class="limit-row">
+            <div class="limit-row-header">
+              <span class="limit-label">${escHtml(catLabel(cat))}</span>
+              <span class="limit-amounts">
+                ${fmt(spent)} / ${fmt(lim)}
+                <button class="btn-icon delete" onclick="deleteLimit('${escHtml(cat).replace(/'/g, '&#39;')}')" title="Удалить лимит">✕</button>
+              </span>
+            </div>
+            <div class="limit-progress-wrap">
+              <div class="limit-progress ${state}" style="width:${pct}%"></div>
+            </div>
+            <div class="limit-status ${state}">${statusText} (${real}%)</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ─── Управление пользовательскими категориями ────────────────────────────
+
+    function addCustomCategory() {
+      const type  = document.querySelector('input[name="cat-type"]:checked').value;
+      const input = document.getElementById('new-cat-input');
+      const name  = input.value.trim();
+      if (!name) return;
+      if (CATEGORIES[type].includes(name) || customCats[type].includes(name)) {
+        input.value = ''; return;
+      }
+      customCats[type].push(name);
+      saveCustomCats();
+      input.value = '';
+      buildCategorySelect();
+      buildLimitCategorySelect();
+      renderCustomCategories();
+    }
+
+    function deleteCustomCategory(type, name) {
+      customCats[type] = customCats[type].filter(c => c !== name);
+      saveCustomCats();
+      buildCategorySelect();
+      buildLimitCategorySelect();
+      renderCustomCategories();
+    }
+
+    function renderCustomCategories() {
+      const type = document.querySelector('input[name="cat-type"]:checked').value;
+      const list = customCats[type];
+      const container = document.getElementById('custom-cat-list');
+      if (list.length === 0) {
+        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray);padding:8px 0">Нет пользовательских категорий</p>';
+        return;
+      }
+      container.innerHTML = '<ul class="custom-cat-list">' +
+        list.map(name => `
+          <li class="custom-cat-item">
+            <span>${escHtml(catLabel(name))}</span>
+            <button class="btn-icon delete" onclick="deleteCustomCategory('${type}', '${escHtml(name).replace(/'/g, '&#39;')}')" title="Удалить">✕</button>
+          </li>
+        `).join('') +
+        '</ul>';
+    }
+
+    // ─── Отчёт ───────────────────────────────────────────────────────────────
+
+    function getPeriodRange(period) {
+      const now    = new Date();
+      const todayY = now.getFullYear();
+      const todayM = now.getMonth();
+      const todayD = now.getDate();
+      const pad    = n => String(n).padStart(2, '0');
+      const toStr  = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      const end    = new Date(todayY, todayM, todayD);
+      let start;
+
+      if (period === 'week') {
+        const dow   = end.getDay();
+        const back  = dow === 0 ? 6 : dow - 1;
+        start = new Date(todayY, todayM, todayD - back);
+      } else if (period === 'month') {
+        start = new Date(todayY, todayM, 1);
+      } else {
+        start = new Date(todayY, 0, 1);
+      }
+
+      const names = { week: 'Неделя', month: 'Месяц', year: 'Год' };
+      const label = `${names[period]}: ${fmtDate(toStr(start))} – ${fmtDate(toStr(end))}`;
+      return { startStr: toStr(start), endStr: toStr(end), label };
+    }
+
+    function setReportPeriod(period) {
+      reportPeriod = period;
+      ['week', 'month', 'year'].forEach(p =>
+        document.getElementById('report-btn-' + p).classList.toggle('active', p === period)
+      );
+      renderReport();
+    }
+
+    function buildCatHtml(txList, isIncome) {
+      if (txList.length === 0)
+        return '<p style="font-size:0.85rem;color:var(--text-gray)">Нет данных за период</p>';
+      const map = {};
+      txList.forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
+      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
+      const max    = sorted[0][1];
+      const total  = txList.reduce((s, t) => s + t.amount, 0);
+      return sorted.map(([cat, sum]) => {
+        const pct    = total > 0 ? Math.round(sum / total * 100) : 0;
+        const barCls = isIncome ? 'cat-bar income' : 'cat-bar';
+        return `
+          <div class="cat-row">
+            <div>
+              <div class="cat-label">${escHtml(catLabel(cat))}</div>
+              <div class="cat-bar-wrap">
+                <div class="${barCls}" style="width:${Math.round(sum/max*100)}%"></div>
+              </div>
+            </div>
+            <div class="cat-amount">${fmt(sum)} <span style="font-weight:400;color:var(--text-gray)">(${pct}%)</span></div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderReport() {
+      const { startStr, endStr, label } = getPeriodRange(reportPeriod);
+      document.getElementById('report-period-label').textContent = label;
+
+      const txs     = transactions.filter(t => t.date >= startStr && t.date <= endStr);
+      const income  = txs.filter(t => t.type === 'income');
+      const expense = txs.filter(t => t.type === 'expense');
+
+      const totalIncome  = income.reduce((s, t)  => s + t.amount, 0);
+      const totalExpense = expense.reduce((s, t) => s + t.amount, 0);
+      const balance      = totalIncome - totalExpense;
+      const balSign      = balance >= 0 ? '+' : '−';
+      const balColor     = balance >= 0 ? 'var(--green)' : 'var(--red)';
+
+      document.getElementById('report-content').innerHTML = `
+        <div class="report-summary">
+          <div class="report-stat">
+            <div class="report-stat-label">Доходы</div>
+            <div class="report-stat-value income-val">${fmt(totalIncome)}</div>
+          </div>
+          <div class="report-stat">
+            <div class="report-stat-label">Расходы</div>
+            <div class="report-stat-value expense-val">${fmt(totalExpense)}</div>
+          </div>
+          <div class="report-stat">
+            <div class="report-stat-label">Баланс</div>
+            <div class="report-stat-value" style="color:${balColor}">${balSign}${fmt(Math.abs(balance))}</div>
+          </div>
+        </div>
+        <div class="report-grid">
+          <div>
+            <div class="report-col-title">Расходы по категориям</div>
+            ${buildCatHtml(expense, false)}
+          </div>
+          <div>
+            <div class="report-col-title">Доходы по категориям</div>
+            ${buildCatHtml(income, true)}
+          </div>
+        </div>`;
+    }
+
+    function copyReport() {
+      const { startStr, endStr, label } = getPeriodRange(reportPeriod);
+      const txs     = transactions.filter(t => t.date >= startStr && t.date <= endStr);
+      const income  = txs.filter(t => t.type === 'income');
+      const expense = txs.filter(t => t.type === 'expense');
+
+      const totalIncome  = income.reduce((s, t)  => s + t.amount, 0);
+      const totalExpense = expense.reduce((s, t) => s + t.amount, 0);
+      const balance      = totalIncome - totalExpense;
+
+      const aggregateCats = list => {
+        const map = {};
+        list.forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
+        return Object.entries(map).sort((a, b) => b[1] - a[1]);
+      };
+      const fmtCats = (groups, total) =>
+        groups.length === 0 ? '  —' :
+        groups.map(([cat, sum]) => {
+          const pct = total > 0 ? Math.round(sum / total * 100) : 0;
+          return `  ${cat}: ${fmt(sum)} (${pct}%)`;
+        }).join('\n');
+
+      const expGroups = aggregateCats(expense);
+      const incGroups = aggregateCats(income);
+
+      const lines = [
+        `📊 Отчёт: ${label}`,
+        '',
+        `Доходы:  ${fmt(totalIncome)}`,
+        `Расходы: ${fmt(totalExpense)}`,
+        `Баланс:  ${balance >= 0 ? '+' : '−'}${fmt(Math.abs(balance))}`,
+        '',
+        'Расходы по категориям:',
+        fmtCats(expGroups, totalExpense),
+        '',
+        'Доходы по категориям:',
+        fmtCats(incGroups, totalIncome),
+      ].join('\n');
+
+      const btn = document.getElementById('copy-report-btn');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(lines).then(() => {
+          btn.textContent = '✅';
+          setTimeout(() => { btn.textContent = '📋'; }, 1500);
+        });
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = lines; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+        btn.textContent = '✅';
+        setTimeout(() => { btn.textContent = '📋'; }, 1500);
+      }
+    }
+
+    // ─── Главный рендер ──────────────────────────────────────────────────────
+
+    function render() {
+      renderBalance();
+      renderTransactions();
+      renderAnalytics();
+      renderDailyChart();
+      renderLimits();
+      renderReport();
+    }
+
+    // ─── Инициализация ───────────────────────────────────────────────────────
+
+    // Переключение типа → обновить список категорий
+    document.querySelectorAll('input[name="type"]').forEach(r =>
+      r.addEventListener('change', buildCategorySelect)
+    );
+
+    // Выбор своей категории
+    document.getElementById('category').addEventListener('change', onCategoryChange);
+
+    // Переключение типа в карточке категорий
+    document.querySelectorAll('input[name="cat-type"]').forEach(r =>
+      r.addEventListener('change', renderCustomCategories)
+    );
+
+    // Enter в поле новой категории
+    document.getElementById('new-cat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); }
+    });
+
+    // Дата по умолчанию — сегодня
+    document.getElementById('tx-date').value = today();
+
+    buildCategorySelect();
+    buildLimitCategorySelect();
+    renderCustomCategories();
+    applyTheme(localStorage.getItem('budget_theme') === 'dark');
+    render();
+  </script>
+</body>
+</html>
