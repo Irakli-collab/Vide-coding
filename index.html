@@ -1732,7 +1732,7 @@
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
         const localStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-        endStr = localStr(now);
+        endStr = '9999-99-99';
         if (histPeriod === 'week') {
           const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
           startStr = localStr(d);
