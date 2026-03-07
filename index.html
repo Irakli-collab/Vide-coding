@@ -57,7 +57,10 @@
       text-align: center;
       margin-bottom: 24px;
       position: relative;
+      transition: background-color 0.5s ease;
     }
+    .balance-card.positive { background: #16a34a; }
+    .balance-card.negative { background: #dc2626; }
 
     .theme-toggle {
       position: absolute;
@@ -214,6 +217,70 @@
     .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
     .btn-primary:active { transform: translateY(0); }
 
+    /* ─── FAB ─── */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      font-size: 1.8rem;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(79,70,229,0.4);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .fab:hover  { background: var(--primary-hover); transform: scale(1.08); }
+    .fab:active { transform: scale(0.96); }
+
+    /* ─── Modal ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s, visibility 0.25s;
+      -webkit-overflow-scrolling: touch;
+    }
+    .modal-overlay.open { opacity: 1; visibility: visible; }
+    .modal-content {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px 32px;
+      width: 90%;
+      max-width: 400px;
+      max-height: 85vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      transform: translateY(40px) scale(0.95);
+      transition: transform 0.25s ease;
+    }
+    .modal-overlay.open .modal-content { transform: translateY(0) scale(1); }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+    }
+    .modal-header h2 { margin-bottom: 0; }
+    .modal-close {
+      background: none; border: none; font-size: 1.3rem; cursor: pointer;
+      color: var(--text-gray); padding: 4px 8px; border-radius: 6px; transition: background 0.15s;
+    }
+    .modal-close:hover { background: #e2e8f0; }
+
     /* ─── Список транзакций ─── */
     .tx-list {
       list-style: none;
@@ -241,6 +308,14 @@
     }
 
     .tx-item:hover { background: #f1f5f9; }
+
+    @keyframes tx-slide-in {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .tx-item.animate-in {
+      animation: tx-slide-in 0.35s ease forwards;
+    }
 
     .tx-date {
       font-size: 0.78rem;
@@ -314,9 +389,26 @@
     .tx-empty {
       text-align: center;
       color: var(--text-gray);
-      font-size: 0.9rem;
-      padding: 32px 0;
+      padding: 48px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
     }
+    .tx-empty .empty-icon    { font-size: 2.5rem; margin-bottom: 4px; }
+    .tx-empty .empty-title   { font-size: 1rem; font-weight: 600; color: var(--text-dark); }
+    .tx-empty .empty-subtitle{ font-size: 0.85rem; }
+    .tx-empty .empty-cta {
+      margin-top: 8px; padding: 8px 20px; background: var(--primary); color: #fff;
+      border: none; border-radius: 8px; font-family: var(--font); font-size: 0.9rem;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .tx-empty .empty-cta:hover { background: var(--primary-hover); }
+
+    .analytics-empty {
+      text-align: center; color: var(--text-gray); padding: 24px 8px; font-size: 0.85rem;
+    }
+    .analytics-empty .empty-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
 
     /* ─── Аналитика ─── */
     .analytics-section { margin-bottom: 20px; }
@@ -634,6 +726,10 @@
     body.dark .report-btn:not(:last-child) { border-right-color: #2e3347; }
     body.dark .report-stat   { background: #252836; border-color: #2a2d3e; }
     body.dark .custom-cat-item { background: #252836; border-color: #2a2d3e; }
+    body.dark .modal-overlay   { background: rgba(0,0,0,0.65); }
+    body.dark .modal-close:hover { background: #2a2d3e; }
+    body.dark .balance-card.positive { background: #166534; }
+    body.dark .balance-card.negative { background: #991b1b; }
 
     /* ─── Навигация ─── */
     .nav-tabs {
@@ -764,6 +860,8 @@
       .hist-tx-row    { grid-template-columns: 50px 1fr auto; gap: 6px; }
       .nav-tabs       { display: none; }
       .bottom-nav     { display: flex; }
+      .fab            { bottom: 80px; right: 16px; }
+      .modal-content  { padding: 20px 16px; max-height: 80vh; }
     }
   </style>
 </head>
@@ -806,6 +904,20 @@
     </button>
   </nav>
 
+  <!-- FAB -->
+  <button class="fab" id="fab-add" onclick="openTxModal()" aria-label="Добавить транзакцию">+</button>
+
+  <!-- Modal: форма добавления транзакции -->
+  <div class="modal-overlay" id="tx-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Добавить транзакцию</h2>
+        <button class="modal-close" onclick="closeTxModal()">&times;</button>
+      </div>
+      <div id="modal-form-slot"></div>
+    </div>
+  </div>
+
   <div id="view-main">
 
   <!-- График по дням -->
@@ -827,8 +939,8 @@
     <!-- Левая колонка -->
     <div class="left-col">
 
-      <!-- Форма добавления -->
-      <div class="card">
+      <!-- Форма добавления (скрыта — открывается через FAB) -->
+      <div class="card" id="tx-form-card" style="display:none">
         <h2>Добавить транзакцию</h2>
 
         <form id="tx-form">
@@ -1115,10 +1227,7 @@
       transactions.unshift({ id: Date.now(), amount, type, category, date, comment });
       saveData(transactions);
       render();
-
-      this.reset();
-      document.getElementById('tx-date').value = today();
-      buildCategorySelect();
+      closeTxModal();
     });
 
     // ─── Удаление ────────────────────────────────────────────────────────────
@@ -1178,6 +1287,11 @@
       document.getElementById('balance-amount').textContent = fmt(balance);
       document.getElementById('total-income').textContent   = fmt(income);
       document.getElementById('total-expense').textContent  = fmt(expense);
+
+      const card = document.querySelector('.balance-card');
+      card.classList.remove('positive', 'negative');
+      if (balance > 0)      card.classList.add('positive');
+      else if (balance < 0) card.classList.add('negative');
     }
 
     // ─── Рендер транзакций ───────────────────────────────────────────────────
@@ -1186,14 +1300,19 @@
       const list = document.getElementById('tx-list');
 
       if (transactions.length === 0) {
-        list.innerHTML = '<li class="tx-empty">Транзакций пока нет.<br>Добавьте первую запись слева.</li>';
+        list.innerHTML = `<li class="tx-empty">
+          <span class="empty-icon">📝</span>
+          <span class="empty-title">Пока пусто</span>
+          <span class="empty-subtitle">Добавьте первую транзакцию</span>
+          <button class="empty-cta" onclick="openTxModal()">+ Добавить</button>
+        </li>`;
         return;
       }
 
       const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
-      list.innerHTML = sorted.map(t => `
-        <li class="tx-item">
+      list.innerHTML = sorted.map((t, i) => `
+        <li class="tx-item animate-in" style="animation-delay:${Math.min(i * 0.04, 0.4)}s; opacity:0">
           <span class="tx-date">${fmtDate(t.date)}</span>
           <div class="tx-info">
             <span class="tx-category" id="cat-text-${t.id}">
@@ -1235,7 +1354,7 @@
       const container = document.getElementById('top-categories');
 
       if (thisMonthExpenses.length === 0) {
-        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray)">Нет расходов в этом месяце</p>';
+        container.innerHTML = '<div class="analytics-empty"><span class="empty-icon">📊</span>Нет расходов в этом месяце</div>';
         return;
       }
 
@@ -1272,7 +1391,7 @@
       const container = document.getElementById('top-income-categories');
 
       if (thisMonthIncome.length === 0) {
-        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray)">Нет доходов в этом месяце</p>';
+        container.innerHTML = '<div class="analytics-empty"><span class="empty-icon">💰</span>Нет доходов в этом месяце</div>';
         return;
       }
 
@@ -1908,6 +2027,25 @@
       if (currentView === 'history') renderHistory();
     }
 
+    // ─── FAB + Modal ─────────────────────────────────────────────────────────
+
+    function openTxModal() {
+      const slot = document.getElementById('modal-form-slot');
+      const form = document.getElementById('tx-form');
+      if (!slot.contains(form)) slot.appendChild(form);
+      form.style.display = '';
+      document.getElementById('tx-modal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeTxModal() {
+      document.getElementById('tx-modal').classList.remove('open');
+      document.body.style.overflow = '';
+      document.getElementById('tx-form').reset();
+      document.getElementById('tx-date').value = today();
+      buildCategorySelect();
+    }
+
     // ─── Инициализация ───────────────────────────────────────────────────────
 
     // Переключение типа → обновить список категорий
@@ -1932,6 +2070,14 @@
     // Enter в поле новой категории
     document.getElementById('new-cat-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); }
+    });
+
+    // Перенести форму в слот модалки
+    document.getElementById('modal-form-slot').appendChild(document.getElementById('tx-form'));
+
+    // Закрытие модалки по клику на overlay
+    document.getElementById('tx-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeTxModal();
     });
 
     // Дата по умолчанию — сегодня
