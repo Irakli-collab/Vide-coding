@@ -1729,7 +1729,11 @@
       if (histPeriod === 'all') {
         startStr = '0000-00-00'; endStr = '9999-99-99';
       } else {
-        ({ startStr, endStr } = getPeriodRange(histPeriod));
+        const now = new Date();
+        endStr = now.toISOString().slice(0, 10);
+        const past = new Date(now);
+        past.setDate(now.getDate() - (histPeriod === 'week' ? 6 : 29));
+        startStr = past.toISOString().slice(0, 10);
       }
 
       const filtered = transactions.filter(t => t.date >= startStr && t.date <= endStr);
