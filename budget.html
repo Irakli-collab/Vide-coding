@@ -841,6 +841,78 @@
     .bottom-nav-btn svg    { width: 22px; height: 22px; }
     body.dark .bottom-nav  { box-shadow: 0 -2px 12px rgba(0,0,0,0.3); border-top-color: #2a2d3e; }
 
+    /* ─── Скриншот (scan) ─── */
+    .scan-upload-zone {
+      border: 2px dashed #cbd5e0;
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .scan-upload-zone:hover, .scan-upload-zone.dragover {
+      border-color: var(--primary);
+      background: rgba(79,70,229,0.04);
+    }
+    .scan-upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    .scan-upload-text { font-weight: 500; margin-bottom: 4px; }
+    .scan-upload-hint { font-size: 0.8rem; color: var(--text-gray); }
+
+    .scan-loading { text-align: center; padding: 24px; color: var(--text-gray); }
+    .scan-spinner {
+      width: 32px; height: 32px; border: 3px solid #e2e8f0;
+      border-top-color: var(--primary); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .scan-error {
+      background: #fef2f2; color: #dc2626; padding: 12px 16px;
+      border-radius: 8px; font-size: 0.88rem; margin-top: 12px;
+    }
+
+    .scan-tx-item {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+    .scan-tx-info { display: flex; flex-direction: column; gap: 2px; }
+    .scan-tx-desc { font-size: 0.88rem; font-weight: 500; }
+    .scan-tx-date { font-size: 0.78rem; color: var(--text-gray); }
+    .scan-tx-amount { font-weight: 600; white-space: nowrap; }
+    .scan-tx-amount.income { color: var(--green); }
+    .scan-tx-amount.expense { color: var(--red); }
+    .scan-tx-actions { display: flex; gap: 4px; }
+
+    .scan-cat-select {
+      padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;
+      font-family: var(--font); font-size: 0.82rem; background: var(--card);
+      color: var(--text-dark); margin-top: 4px;
+    }
+
+    .scan-results-actions {
+      display: flex; gap: 10px; margin-top: 16px;
+    }
+    .btn-secondary {
+      flex: 1; padding: 11px; background: var(--bg); color: var(--text-dark);
+      border: 1px solid #e2e8f0; border-radius: 8px; font-family: var(--font);
+      font-size: 1rem; font-weight: 500; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-secondary:hover { background: #e2e8f0; }
+
+    body.dark .scan-upload-zone { border-color: #3a3d4e; }
+    body.dark .scan-upload-zone:hover, body.dark .scan-upload-zone.dragover { background: rgba(79,70,229,0.08); }
+    body.dark .scan-error { background: #451a1a; color: #fca5a5; }
+    body.dark .scan-cat-select { border-color: #3a3d4e; }
+    body.dark .btn-secondary { border-color: #3a3d4e; }
+    body.dark .btn-secondary:hover { background: #2a2d3e; }
+    body.dark .scan-spinner { border-color: #3a3d4e; border-top-color: var(--primary); }
+
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
       body            { padding: 16px 12px 72px; }
@@ -888,6 +960,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="nav-main"    onclick="switchView('main')">Главная</button>
     <button class="nav-tab"        id="nav-history" onclick="switchView('history')">История</button>
+    <button class="nav-tab"        id="nav-scan"    onclick="switchView('scan')">Скриншот</button>
   </div>
 
   <nav class="bottom-nav" id="bottom-nav">
@@ -902,6 +975,12 @@
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
       </svg>
       <span>История</span>
+    </button>
+    <button class="bottom-nav-btn" id="bnav-scan" onclick="switchView('scan')">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+      </svg>
+      <span>Скриншот</span>
     </button>
   </nav>
 
@@ -1099,6 +1178,56 @@
         </div>
       </div>
       <div id="history-content"></div>
+    </div>
+  </div>
+
+  <div id="view-scan" style="display:none">
+    <div class="card">
+      <h2>Загрузить скриншот из банка</h2>
+      <p style="font-size:0.88rem;color:var(--text-gray);margin-bottom:16px">Загрузите скриншот с транзакциями из банковского приложения</p>
+
+      <div class="scan-upload-zone" id="scan-upload-zone">
+        <input type="file" id="scan-file-input" accept="image/*" hidden>
+        <div class="scan-upload-icon">📸</div>
+        <div class="scan-upload-text">Нажмите или перетащите скриншот</div>
+        <div class="scan-upload-hint">PNG, JPG — до 10 МБ</div>
+      </div>
+
+      <div id="scan-preview" style="display:none">
+        <img id="scan-preview-img" style="max-width:100%;border-radius:8px;margin:12px 0">
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" id="scan-btn" onclick="scanScreenshot()" style="flex:1">Распознать транзакции</button>
+          <button class="btn-secondary" onclick="resetScanUI()" style="flex:0 0 auto;padding:11px 16px">Сброс</button>
+        </div>
+      </div>
+
+      <div id="scan-loading" style="display:none" class="scan-loading">
+        <div class="scan-spinner"></div>
+        <span>Распознаю транзакции...</span>
+      </div>
+
+      <div id="scan-error" style="display:none" class="scan-error"></div>
+
+      <div id="scan-results" style="display:none">
+        <h3 style="margin:16px 0 10px">Найденные транзакции</h3>
+        <div id="scan-results-list"></div>
+        <div class="scan-results-actions">
+          <button class="btn-primary" style="flex:1" onclick="confirmScanResults()">Добавить все</button>
+          <button class="btn-secondary" style="flex:1" onclick="cancelScanResults()">Отмена</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:24px">
+      <h2>Настройки API</h2>
+      <div class="form-group">
+        <label for="api-key-input">Anthropic API ключ</label>
+        <div style="display:flex;gap:8px">
+          <input type="password" id="api-key-input" placeholder="sk-ant-..." style="flex:1">
+          <button class="btn-primary" style="width:auto;padding:8px 16px" onclick="saveApiKey()">Сохранить</button>
+        </div>
+        <div id="api-key-status" style="font-size:0.8rem;margin-top:4px;color:var(--text-gray)"></div>
+      </div>
     </div>
   </div>
 
@@ -1891,12 +2020,13 @@
 
     function switchView(view) {
       currentView = view;
-      document.getElementById('view-main').style.display    = view === 'main'    ? '' : 'none';
-      document.getElementById('view-history').style.display = view === 'history' ? '' : 'none';
-      document.getElementById('nav-main').classList.toggle('active',    view === 'main');
-      document.getElementById('nav-history').classList.toggle('active', view === 'history');
-      document.getElementById('bnav-main').classList.toggle('active',    view === 'main');
-      document.getElementById('bnav-history').classList.toggle('active', view === 'history');
+      ['main', 'history', 'scan'].forEach(v => {
+        document.getElementById('view-' + v).style.display = v === view ? '' : 'none';
+        var nt = document.getElementById('nav-' + v);
+        if (nt) nt.classList.toggle('active', v === view);
+        var bt = document.getElementById('bnav-' + v);
+        if (bt) bt.classList.toggle('active', v === view);
+      });
       if (view === 'history') renderHistory();
     }
 
@@ -2047,6 +2177,186 @@
       buildCategorySelect();
     }
 
+    // ─── Скриншот (Scan) ────────────────────────────────────────────────────
+
+    const API_KEY_STORAGE = 'budget_anthropic_api_key';
+    let scanImageBase64 = null;
+    let scanMediaType = 'image/png';
+    let pendingScanTxs = [];
+
+    function saveApiKey() {
+      const key = document.getElementById('api-key-input').value.trim();
+      if (key) {
+        saveToStorage(API_KEY_STORAGE, key);
+        document.getElementById('api-key-status').textContent = 'Ключ сохранён';
+        document.getElementById('api-key-input').value = '';
+        document.getElementById('api-key-input').placeholder = '••••••••' + key.slice(-4);
+      }
+    }
+
+    function getApiKey() { return loadFromStorage(API_KEY_STORAGE, ''); }
+
+    function initApiKeyUI() {
+      const key = getApiKey();
+      if (key) {
+        document.getElementById('api-key-input').placeholder = '••••••••' + key.slice(-4);
+        document.getElementById('api-key-status').textContent = 'Ключ сохранён';
+      }
+    }
+
+    function handleScanFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      if (file.size > 10 * 1024 * 1024) { showScanError('Файл слишком большой (макс. 10 МБ)'); return; }
+      scanMediaType = file.type;
+      const reader = new FileReader();
+      reader.onload = () => {
+        scanImageBase64 = reader.result.split(',')[1];
+        document.getElementById('scan-preview-img').src = reader.result;
+        document.getElementById('scan-preview').style.display = '';
+        document.getElementById('scan-upload-zone').style.display = 'none';
+        document.getElementById('scan-results').style.display = 'none';
+        document.getElementById('scan-error').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function scanScreenshot() {
+      const apiKey = getApiKey();
+      if (!apiKey) { showScanError('Сначала введите API ключ в настройках ниже'); return; }
+      if (!scanImageBase64) return;
+
+      document.getElementById('scan-loading').style.display = '';
+      document.getElementById('scan-btn').disabled = true;
+      document.getElementById('scan-error').style.display = 'none';
+
+      const allCats = [...CATEGORIES.expense, ...CATEGORIES.income, ...customCats.expense, ...customCats.income];
+
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 4096,
+            messages: [{
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: { type: 'base64', media_type: scanMediaType, data: scanImageBase64 }
+                },
+                {
+                  type: 'text',
+                  text: 'Извлеки все транзакции из этого скриншота банковского приложения.\n\nДля каждой транзакции определи:\n- amount: сумма (число, всегда положительное)\n- type: "income" или "expense"\n- date: дата в формате YYYY-MM-DD (если год не указан, используй ' + new Date().getFullYear() + ')\n- description: описание/название операции\n- category: одна из категорий: ' + allCats.join(', ') + '\n\nОтветь ТОЛЬКО валидным JSON массивом, без markdown, без пояснений:\n[{"amount": 1500, "type": "expense", "date": "2026-03-05", "description": "Пятёрочка", "category": "Еда"}, ...]'
+                }
+              ]
+            }]
+          })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error?.message || 'HTTP ' + resp.status);
+        }
+
+        const data = await resp.json();
+        const text = data.content && data.content[0] && data.content[0].text || '';
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error('Не удалось распознать транзакции');
+        pendingScanTxs = JSON.parse(jsonMatch[0]);
+        renderScanResults();
+      } catch (e) {
+        showScanError('Ошибка: ' + e.message);
+      } finally {
+        document.getElementById('scan-loading').style.display = 'none';
+        document.getElementById('scan-btn').disabled = false;
+      }
+    }
+
+    function renderScanResults() {
+      if (pendingScanTxs.length === 0) {
+        showScanError('Транзакции не найдены на скриншоте');
+        return;
+      }
+      const allCats = [...CATEGORIES.expense, ...CATEGORIES.income, ...customCats.expense, ...customCats.income];
+      const unique = [...new Set(allCats)];
+
+      document.getElementById('scan-results-list').innerHTML = pendingScanTxs.map((tx, i) => {
+        return '<div class="scan-tx-item" id="scan-tx-' + i + '">' +
+          '<div class="scan-tx-info">' +
+            '<span class="scan-tx-desc">' + escHtml(tx.description) + '</span>' +
+            '<span class="scan-tx-date">' + escHtml(tx.date) + '</span>' +
+            '<select class="scan-cat-select" data-scan-idx="' + i + '">' +
+              unique.map(c => '<option value="' + escHtml(c) + '"' + (c === tx.category ? ' selected' : '') + '>' + escHtml(catLabel(c)) + '</option>').join('') +
+            '</select>' +
+          '</div>' +
+          '<span class="scan-tx-amount ' + tx.type + '">' + (tx.type === 'income' ? '+' : '\u2212') + fmt(tx.amount) + '</span>' +
+          '<div class="scan-tx-actions">' +
+            '<button class="btn-icon delete" onclick="removeScanTx(' + i + ')" title="Удалить">\u2715</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      document.getElementById('scan-results').style.display = '';
+    }
+
+    function removeScanTx(idx) {
+      pendingScanTxs.splice(idx, 1);
+      if (pendingScanTxs.length === 0) {
+        document.getElementById('scan-results').style.display = 'none';
+        return;
+      }
+      renderScanResults();
+    }
+
+    function confirmScanResults() {
+      document.querySelectorAll('.scan-cat-select').forEach(sel => {
+        const idx = +sel.dataset.scanIdx;
+        if (pendingScanTxs[idx]) pendingScanTxs[idx].category = sel.value;
+      });
+
+      pendingScanTxs.forEach(tx => {
+        transactions.unshift({
+          id: Date.now() + Math.random(),
+          amount: tx.amount,
+          type: tx.type,
+          category: tx.category,
+          date: tx.date,
+          comment: tx.description
+        });
+      });
+
+      saveData(transactions);
+      render();
+      resetScanUI();
+    }
+
+    function cancelScanResults() {
+      pendingScanTxs = [];
+      resetScanUI();
+    }
+
+    function resetScanUI() {
+      pendingScanTxs = [];
+      scanImageBase64 = null;
+      document.getElementById('scan-preview').style.display = 'none';
+      document.getElementById('scan-results').style.display = 'none';
+      document.getElementById('scan-error').style.display = 'none';
+      document.getElementById('scan-upload-zone').style.display = '';
+      document.getElementById('scan-file-input').value = '';
+    }
+
+    function showScanError(msg) {
+      const el = document.getElementById('scan-error');
+      el.textContent = msg;
+      el.style.display = '';
+    }
+
     // ─── Инициализация ───────────────────────────────────────────────────────
 
     // Переключение типа → обновить список категорий
@@ -2088,6 +2398,20 @@
     buildLimitCategorySelect();
     renderCustomCategories();
     applyTheme(localStorage.getItem('budget_theme') === 'dark');
+
+    // Scan: upload zone events
+    document.getElementById('scan-upload-zone').addEventListener('click', function() {
+      document.getElementById('scan-file-input').click();
+    });
+    document.getElementById('scan-file-input').addEventListener('change', function(e) {
+      if (e.target.files[0]) handleScanFile(e.target.files[0]);
+    });
+    var scanZone = document.getElementById('scan-upload-zone');
+    scanZone.addEventListener('dragover', function(e) { e.preventDefault(); scanZone.classList.add('dragover'); });
+    scanZone.addEventListener('dragleave', function() { scanZone.classList.remove('dragover'); });
+    scanZone.addEventListener('drop', function(e) { e.preventDefault(); scanZone.classList.remove('dragover'); handleScanFile(e.dataTransfer.files[0]); });
+    initApiKeyUI();
+
     render();
   </script>
 </body>
