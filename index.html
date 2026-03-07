@@ -192,7 +192,8 @@
     }
 
     /* Поле своей категории — скрыто по умолчанию */
-    #custom-category-wrap { display: none; margin-top: 8px; }
+    #custom-category-wrap  { display: none; margin-top: 8px; }
+    #limit-new-cat-wrap    { display: none; margin-top: 8px; }
 
     /* Кнопка добавить */
     .btn-primary {
@@ -932,6 +933,10 @@
           <div>
             <label for="limit-category">Категория</label>
             <select id="limit-category"></select>
+            <div id="limit-new-cat-wrap">
+              <input type="text" id="limit-new-cat-input" placeholder="Название категории">
+              <button class="btn-primary" onclick="confirmLimitNewCategory()" style="margin-top:6px;width:100%">Добавить</button>
+            </div>
           </div>
           <div>
             <label for="limit-amount">Лимит (₽)</label>
@@ -1473,12 +1478,33 @@
       const sel = document.getElementById('limit-category');
       const cur = sel.value;
       sel.innerHTML = all.map(c => `<option value="${escHtml(c)}"${c === cur ? ' selected' : ''}>${escHtml(catLabel(c))}</option>`).join('');
+      sel.innerHTML += '<option value="__add_cat__">➕ Добавить категорию</option>';
+      onLimitCategoryChange();
+    }
+
+    function onLimitCategoryChange() {
+      const wrap = document.getElementById('limit-new-cat-wrap');
+      wrap.style.display = document.getElementById('limit-category').value === '__add_cat__' ? 'block' : 'none';
+    }
+
+    function confirmLimitNewCategory() {
+      const input = document.getElementById('limit-new-cat-input');
+      const name  = input.value.trim();
+      if (!name) return;
+      if (!CATEGORIES.expense.includes(name) && !customCats.expense.includes(name)) {
+        customCats.expense.push(name);
+        saveCustomCats();
+        refreshCategoryUI();
+      }
+      document.getElementById('limit-category').value = name;
+      onLimitCategoryChange();
+      input.value = '';
     }
 
     function applyLimit() {
       const cat = document.getElementById('limit-category').value;
       const amt = parseFloat(document.getElementById('limit-amount').value);
-      if (!cat || !amt || amt <= 0) return;
+      if (!cat || cat === '__add_cat__' || !amt || amt <= 0) return;
       limits[cat] = amt;
       saveLimits();
       document.getElementById('limit-amount').value = '';
@@ -1891,6 +1917,12 @@
 
     // Выбор своей категории
     document.getElementById('category').addEventListener('change', onCategoryChange);
+
+    // Лимиты: выбор «Добавить категорию»
+    document.getElementById('limit-category').addEventListener('change', onLimitCategoryChange);
+    document.getElementById('limit-new-cat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmLimitNewCategory(); }
+    });
 
     // Переключение типа в карточке категорий
     document.querySelectorAll('input[name="cat-type"]').forEach(r =>
