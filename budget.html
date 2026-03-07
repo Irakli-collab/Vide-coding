@@ -667,17 +667,26 @@
     }
     .history-header h2 { margin-bottom: 0; }
 
-    .hist-cat-block { margin-bottom: 20px; }
-    .hist-cat-header {
+    .hist-month-section { margin-bottom: 28px; }
+    .hist-month-header  {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      padding-bottom: 8px;
-      border-bottom: 1.5px solid #edf2f7;
-      margin-bottom: 8px;
+      align-items: baseline;
+      padding: 10px 0 8px;
+      border-bottom: 2px solid var(--primary);
+      margin-bottom: 12px;
     }
-    .hist-cat-name  { font-size: 0.95rem; font-weight: 600; color: var(--text-dark); }
-    .hist-cat-total { font-size: 0.95rem; font-weight: 700; white-space: nowrap; }
+    .hist-month-title  { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+    .hist-month-totals { font-size: 0.82rem; color: var(--text-gray); white-space: nowrap; }
+
+    .hist-week-section { margin-bottom: 14px; padding-left: 8px; }
+    .hist-week-header  {
+      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-gray);
+      padding: 4px 0 6px;
+      border-bottom: 1px solid #edf2f7;
+      margin-bottom: 4px;
+    }
     .hist-tx-row {
       display: grid;
       grid-template-columns: 60px 1fr auto;
@@ -687,13 +696,15 @@
       border-bottom: 1px solid #f1f5f9;
     }
     .hist-tx-row:last-child { border-bottom: none; }
-    .hist-tx-date    { font-size: 0.78rem; color: var(--text-gray); white-space: nowrap; }
-    .hist-tx-comment { font-size: 0.82rem; color: var(--text-gray); }
-    .hist-tx-amount  { font-size: 0.9rem; font-weight: 600; white-space: nowrap; }
+    .hist-tx-date   { font-size: 0.78rem; color: var(--text-gray); white-space: nowrap; }
+    .hist-tx-cat    { font-size: 0.88rem; font-weight: 600; color: var(--text-dark); }
+    .hist-tx-cmt    { font-size: 0.78rem; color: var(--text-gray); }
+    .hist-tx-amount { font-size: 0.9rem; font-weight: 600; white-space: nowrap; }
     .hist-tx-amount.income  { color: var(--green); }
     .hist-tx-amount.expense { color: var(--red); }
-    body.dark .hist-cat-header { border-bottom-color: #2a2d3e; }
-    body.dark .hist-tx-row     { border-bottom-color: #2a2d3e; }
+    body.dark .hist-month-header { border-bottom-color: var(--primary); }
+    body.dark .hist-week-header  { border-bottom-color: #2a2d3e; }
+    body.dark .hist-tx-row       { border-bottom-color: #2a2d3e; }
 
     /* ─── Адаптив ─── */
     @media (max-width: 780px) {
@@ -1689,6 +1700,30 @@
       renderHistory();
     }
 
+    function weekMonday(dateStr) {
+      const d   = new Date(dateStr + 'T00:00:00');
+      const dow = d.getDay();
+      d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+
+    function monthTitle(yyyymm) {
+      const [y, m] = yyyymm.split('-');
+      const s = new Date(+y, +m - 1, 1).toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    function weekRangeLabel(mondayStr) {
+      const mon = new Date(mondayStr + 'T00:00:00');
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      const fmtD = d => d.getDate();
+      const fmtM = d => d.toLocaleString('ru-RU', { month: 'short' }).replace('.', '');
+      return mon.getMonth() === sun.getMonth()
+        ? `${fmtD(mon)}–${fmtD(sun)} ${fmtM(sun)}`
+        : `${fmtD(mon)} ${fmtM(mon)}–${fmtD(sun)} ${fmtM(sun)}`;
+    }
+
     function renderHistory() {
       let startStr, endStr;
       if (histPeriod === 'all') {
@@ -1705,32 +1740,59 @@
         return;
       }
 
-      const catMap = {};
+      // Группировка по месяцу
+      const byMonth = {};
       filtered.forEach(t => {
-        if (!catMap[t.category]) catMap[t.category] = { type: t.type, total: 0, txs: [] };
-        catMap[t.category].total += t.amount;
-        catMap[t.category].txs.push(t);
+        const mk = t.date.slice(0, 7);
+        if (!byMonth[mk]) byMonth[mk] = [];
+        byMonth[mk].push(t);
       });
+      const months = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
 
-      const sorted = Object.entries(catMap).sort((a, b) => b[1].total - a[1].total);
+      document.getElementById('history-content').innerHTML = months.map(mk => {
+        const txsInMonth = byMonth[mk];
+        const mIncome  = txsInMonth.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const mExpense = txsInMonth.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        const mTotals  =
+          (mIncome  ? `<span style="color:var(--green)">+${fmt(mIncome)}</span>`  : '') +
+          (mIncome && mExpense ? ' / ' : '') +
+          (mExpense ? `<span style="color:var(--red)">−${fmt(mExpense)}</span>` : '');
 
-      document.getElementById('history-content').innerHTML = sorted.map(([cat, { type, total, txs }]) => {
-        const txsSorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-        const totalCls  = type === 'income' ? 'income' : 'expense';
-        const sign      = type === 'income' ? '+' : '−';
-        return `
-          <div class="hist-cat-block">
-            <div class="hist-cat-header">
-              <span class="hist-cat-name">${escHtml(catLabel(cat))}</span>
-              <span class="hist-cat-total ${totalCls}">${sign}${fmt(total)}</span>
+        // Группировка по неделе
+        const byWeek = {};
+        txsInMonth.forEach(t => {
+          const wk = weekMonday(t.date);
+          if (!byWeek[wk]) byWeek[wk] = [];
+          byWeek[wk].push(t);
+        });
+        const weeks = Object.keys(byWeek).sort((a, b) => b.localeCompare(a));
+
+        const weeksHtml = weeks.map(wk => {
+          const txs = byWeek[wk].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+          return `
+            <div class="hist-week-section">
+              <div class="hist-week-header">${weekRangeLabel(wk)}</div>
+              ${txs.map(t => `
+                <div class="hist-tx-row">
+                  <span class="hist-tx-date">${fmtDate(t.date)}</span>
+                  <span>
+                    <span class="hist-tx-cat">${escHtml(catLabel(t.category))}</span>
+                    ${t.comment ? `<span class="hist-tx-cmt"> · ${escHtml(t.comment)}</span>` : ''}
+                  </span>
+                  <span class="hist-tx-amount ${t.type}">${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}</span>
+                </div>
+              `).join('')}
             </div>
-            ${txsSorted.map(t => `
-              <div class="hist-tx-row">
-                <span class="hist-tx-date">${fmtDate(t.date)}</span>
-                <span class="hist-tx-comment">${escHtml(t.comment || '—')}</span>
-                <span class="hist-tx-amount ${t.type}">${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}</span>
-              </div>
-            `).join('')}
+          `;
+        }).join('');
+
+        return `
+          <div class="hist-month-section">
+            <div class="hist-month-header">
+              <span class="hist-month-title">${monthTitle(mk)}</span>
+              <span class="hist-month-totals">${mTotals}</span>
+            </div>
+            ${weeksHtml}
           </div>
         `;
       }).join('');
