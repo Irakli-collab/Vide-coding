@@ -1730,10 +1730,16 @@
         startStr = '0000-00-00'; endStr = '9999-99-99';
       } else {
         const now = new Date();
-        endStr = now.toISOString().slice(0, 10);
-        const past = new Date(now);
-        past.setDate(now.getDate() - (histPeriod === 'week' ? 6 : 29));
-        startStr = past.toISOString().slice(0, 10);
+        const pad = n => String(n).padStart(2, '0');
+        const localStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        endStr = localStr(now);
+        if (histPeriod === 'week') {
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+          startStr = localStr(d);
+        } else {
+          const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          startStr = localStr(d);
+        }
       }
 
       const filtered = transactions.filter(t => t.date >= startStr && t.date <= endStr);
