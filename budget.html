@@ -881,12 +881,16 @@
       border-radius: 8px;
       margin-bottom: 6px;
     }
-    .scan-tx-info { display: flex; flex-direction: column; gap: 2px; }
+    .scan-tx-info { display: flex; flex-direction: column; gap: 4px; }
     .scan-tx-desc { font-size: 0.88rem; font-weight: 500; }
+    .scan-tx-fields {
+      display: flex; gap: 6px; margin-top: 2px;
+    }
     .scan-tx-date {
-      font-size: 0.78rem; padding: 3px 6px; border-radius: 6px;
+      font-size: 0.78rem; padding: 5px 8px; border-radius: 8px;
       border: 1px solid #e2e8f0; font-family: var(--font);
-      background: var(--card); color: var(--text-dark); margin-top: 2px;
+      background: var(--card); color: var(--text-dark);
+      flex-shrink: 0;
     }
     .scan-tx-amount { font-weight: 600; white-space: nowrap; }
     .scan-tx-amount.income { color: var(--green); }
@@ -894,9 +898,9 @@
     .scan-tx-actions { display: flex; gap: 4px; }
 
     .scan-cat-select {
-      padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;
+      padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0;
       font-family: var(--font); font-size: 0.82rem; background: var(--card);
-      color: var(--text-dark); margin-top: 4px;
+      color: var(--text-dark); flex: 1; min-width: 0;
     }
 
     .scan-results-actions {
@@ -939,11 +943,10 @@
       .fab            { bottom: 80px; right: 16px; }
       body            { padding-bottom: 150px; }
       .modal-content  { padding: 20px 16px; max-height: 80vh; }
-      .scan-tx-item    { grid-template-columns: 1fr auto auto; gap: 6px; }
-      .scan-tx-info    { grid-column: 1 / -1; display: grid; grid-template-columns: 120px 1fr; grid-template-rows: auto auto; gap: 4px 6px; }
-      .scan-tx-desc    { grid-column: 1 / -1; }
-      .scan-tx-date    { font-size: 0.76rem; padding: 4px 6px; width: 100%; box-sizing: border-box; }
-      .scan-cat-select { font-size: 0.76rem; width: 100%; box-sizing: border-box; margin-top: 0; }
+      .scan-tx-item  { grid-template-columns: 1fr auto auto; gap: 6px; }
+      .scan-tx-info  { grid-column: 1 / -1; }
+      .scan-tx-date  { font-size: 0.74rem; padding: 4px 6px; }
+      .scan-cat-select { font-size: 0.74rem; }
     }
   </style>
 </head>
@@ -2289,10 +2292,12 @@
         return '<div class="scan-tx-item" id="scan-tx-' + i + '">' +
           '<div class="scan-tx-info">' +
             '<span class="scan-tx-desc">' + escHtml(tx.description) + '</span>' +
-            '<input type="date" class="scan-tx-date" data-scan-idx="' + i + '" value="' + escHtml(tx.date) + '">' +
-            '<select class="scan-cat-select" data-scan-idx="' + i + '">' +
-              unique.map(c => '<option value="' + escHtml(c) + '"' + (c === tx.category ? ' selected' : '') + '>' + escHtml(catLabel(c)) + '</option>').join('') +
-            '</select>' +
+            '<div class="scan-tx-fields">' +
+              '<input type="date" class="scan-tx-date" data-scan-idx="' + i + '" value="' + escHtml(tx.date) + '">' +
+              '<select class="scan-cat-select" data-scan-idx="' + i + '">' +
+                unique.map(c => '<option value="' + escHtml(c) + '"' + (c === tx.category ? ' selected' : '') + '>' + escHtml(catLabel(c)) + '</option>').join('') +
+              '</select>' +
+            '</div>' +
           '</div>' +
           '<span class="scan-tx-amount ' + tx.type + '">' + (tx.type === 'income' ? '+' : '\u2212') + fmt(tx.amount) + '</span>' +
           '<div class="scan-tx-actions">' +
