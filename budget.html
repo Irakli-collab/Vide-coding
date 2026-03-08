@@ -1221,9 +1221,9 @@
     <div class="card" style="margin-top:24px">
       <h2>Настройки API</h2>
       <div class="form-group">
-        <label for="api-key-input">Anthropic API ключ</label>
+        <label for="api-key-input">Gemini API ключ</label>
         <div style="display:flex;gap:8px">
-          <input type="password" id="api-key-input" placeholder="sk-ant-..." style="flex:1">
+          <input type="password" id="api-key-input" placeholder="AIza..." style="flex:1">
           <button class="btn-primary" style="width:auto;padding:8px 16px" onclick="saveApiKey()">Сохранить</button>
         </div>
         <div id="api-key-status" style="font-size:0.8rem;margin-top:4px;color:var(--text-gray)"></div>
@@ -2179,7 +2179,7 @@
 
     // ─── Скриншот (Scan) ────────────────────────────────────────────────────
 
-    const API_KEY_STORAGE = 'budget_anthropic_api_key';
+    const API_KEY_STORAGE = 'budget_gemini_api_key';
     let scanImageBase64 = null;
     let scanMediaType = 'image/png';
     let pendingScanTxs = [];
@@ -2232,28 +2232,16 @@
       const allCats = [...CATEGORIES.expense, ...CATEGORIES.income, ...customCats.expense, ...customCats.income];
 
       try {
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        const prompt = 'Извлеки все транзакции из этого скриншота банковского приложения.\n\nДля каждой транзакции определи:\n- amount: сумма (число, всегда положительное)\n- type: "income" или "expense"\n- date: дата в формате YYYY-MM-DD (если год не указан, используй ' + new Date().getFullYear() + ')\n- description: описание/название операции\n- category: одна из категорий: ' + allCats.join(', ') + '\n\nОтветь ТОЛЬКО валидным JSON массивом, без markdown, без пояснений:\n[{"amount": 1500, "type": "expense", "date": "2026-03-05", "description": "Пятёрочка", "category": "Еда"}, ...]';
+
+        const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 4096,
-            messages: [{
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: { type: 'base64', media_type: scanMediaType, data: scanImageBase64 }
-                },
-                {
-                  type: 'text',
-                  text: 'Извлеки все транзакции из этого скриншота банковского приложения.\n\nДля каждой транзакции определи:\n- amount: сумма (число, всегда положительное)\n- type: "income" или "expense"\n- date: дата в формате YYYY-MM-DD (если год не указан, используй ' + new Date().getFullYear() + ')\n- description: описание/название операции\n- category: одна из категорий: ' + allCats.join(', ') + '\n\nОтветь ТОЛЬКО валидным JSON массивом, без markdown, без пояснений:\n[{"amount": 1500, "type": "expense", "date": "2026-03-05", "description": "Пятёрочка", "category": "Еда"}, ...]'
-                }
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: scanMediaType, data: scanImageBase64 } },
+                { text: prompt }
               ]
             }]
           })
@@ -2265,7 +2253,7 @@
         }
 
         const data = await resp.json();
-        const text = data.content && data.content[0] && data.content[0].text || '';
+        const text = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text || '';
         const jsonMatch = text.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Не удалось распознать транзакции');
         pendingScanTxs = JSON.parse(jsonMatch[0]);
