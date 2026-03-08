@@ -2189,8 +2189,6 @@
       if (key) {
         saveToStorage(API_KEY_STORAGE, key);
         document.getElementById('api-key-status').textContent = 'Ключ сохранён';
-        document.getElementById('api-key-input').value = '';
-        document.getElementById('api-key-input').placeholder = '••••••••' + key.slice(-4);
       }
     }
 
@@ -2199,7 +2197,7 @@
     function initApiKeyUI() {
       const key = getApiKey();
       if (key) {
-        document.getElementById('api-key-input').placeholder = '••••••••' + key.slice(-4);
+        document.getElementById('api-key-input').value = key;
         document.getElementById('api-key-status').textContent = 'Ключ сохранён';
       }
     }
