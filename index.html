@@ -2232,7 +2232,7 @@
       try {
         const prompt = 'Извлеки все транзакции из этого скриншота банковского приложения.\n\nДля каждой транзакции определи:\n- amount: сумма (число, всегда положительное)\n- type: "income" или "expense"\n- date: дата в формате YYYY-MM-DD (если год не указан, используй ' + new Date().getFullYear() + ')\n- description: описание/название операции\n- category: одна из категорий: ' + allCats.join(', ') + '\n\nОтветь ТОЛЬКО валидным JSON массивом, без markdown, без пояснений:\n[{"amount": 1500, "type": "expense", "date": "2026-03-05", "description": "Пятёрочка", "category": "Еда"}, ...]';
 
-        const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+        const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
