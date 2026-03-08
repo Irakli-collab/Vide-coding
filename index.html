@@ -939,9 +939,11 @@
       .fab            { bottom: 80px; right: 16px; }
       body            { padding-bottom: 150px; }
       .modal-content  { padding: 20px 16px; max-height: 80vh; }
-      .scan-tx-item   { grid-template-columns: 1fr auto; }
-      .scan-tx-info   { grid-column: 1 / -1; }
-      .scan-tx-date, .scan-cat-select { width: 100%; box-sizing: border-box; }
+      .scan-tx-item    { grid-template-columns: 1fr auto auto; gap: 6px; }
+      .scan-tx-info    { grid-column: 1 / -1; display: grid; grid-template-columns: 120px 1fr; grid-template-rows: auto auto; gap: 4px 6px; }
+      .scan-tx-desc    { grid-column: 1 / -1; }
+      .scan-tx-date    { font-size: 0.76rem; padding: 4px 6px; width: 100%; box-sizing: border-box; }
+      .scan-cat-select { font-size: 0.76rem; width: 100%; box-sizing: border-box; margin-top: 0; }
     }
   </style>
 </head>
