@@ -883,7 +883,11 @@
     }
     .scan-tx-info { display: flex; flex-direction: column; gap: 2px; }
     .scan-tx-desc { font-size: 0.88rem; font-weight: 500; }
-    .scan-tx-date { font-size: 0.78rem; color: var(--text-gray); }
+    .scan-tx-date {
+      font-size: 0.78rem; padding: 3px 6px; border-radius: 6px;
+      border: 1px solid #e2e8f0; font-family: var(--font);
+      background: var(--card); color: var(--text-dark); margin-top: 2px;
+    }
     .scan-tx-amount { font-weight: 600; white-space: nowrap; }
     .scan-tx-amount.income { color: var(--green); }
     .scan-tx-amount.expense { color: var(--red); }
@@ -908,7 +912,7 @@
     body.dark .scan-upload-zone { border-color: #3a3d4e; }
     body.dark .scan-upload-zone:hover, body.dark .scan-upload-zone.dragover { background: rgba(79,70,229,0.08); }
     body.dark .scan-error { background: #451a1a; color: #fca5a5; }
-    body.dark .scan-cat-select { border-color: #3a3d4e; }
+    body.dark .scan-cat-select, body.dark .scan-tx-date { border-color: #3a3d4e; }
     body.dark .btn-secondary { border-color: #3a3d4e; }
     body.dark .btn-secondary:hover { background: #2a2d3e; }
     body.dark .scan-spinner { border-color: #3a3d4e; border-top-color: var(--primary); }
@@ -2280,7 +2284,7 @@
         return '<div class="scan-tx-item" id="scan-tx-' + i + '">' +
           '<div class="scan-tx-info">' +
             '<span class="scan-tx-desc">' + escHtml(tx.description) + '</span>' +
-            '<span class="scan-tx-date">' + escHtml(tx.date) + '</span>' +
+            '<input type="date" class="scan-tx-date" data-scan-idx="' + i + '" value="' + escHtml(tx.date) + '">' +
             '<select class="scan-cat-select" data-scan-idx="' + i + '">' +
               unique.map(c => '<option value="' + escHtml(c) + '"' + (c === tx.category ? ' selected' : '') + '>' + escHtml(catLabel(c)) + '</option>').join('') +
             '</select>' +
@@ -2308,6 +2312,10 @@
       document.querySelectorAll('.scan-cat-select').forEach(sel => {
         const idx = +sel.dataset.scanIdx;
         if (pendingScanTxs[idx]) pendingScanTxs[idx].category = sel.value;
+      });
+      document.querySelectorAll('.scan-tx-date').forEach(inp => {
+        const idx = +inp.dataset.scanIdx;
+        if (pendingScanTxs[idx] && inp.value) pendingScanTxs[idx].date = inp.value;
       });
 
       pendingScanTxs.forEach(tx => {
