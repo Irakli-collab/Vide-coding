@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
   <title>Бюджет</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1785,6 +1786,7 @@
     function applyTheme(light) {
       document.body.classList.toggle('light', light);
       document.getElementById('theme-toggle').textContent = light ? '🌙' : '☀️';
+      document.querySelector('meta[name="color-scheme"]').content = light ? 'light dark' : 'dark light';
       if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
       renderDailyChart();
     }
