@@ -2233,8 +2233,9 @@
     }
 
     async function scanScreenshot() {
-      const apiKey = getApiKey();
-      if (!apiKey) { showScanError('Сначала введите API ключ в настройках ниже'); return; }
+      const apiKey = (getApiKey() || document.getElementById('api-key-input').value).trim();
+      if (!apiKey) { showScanError('Сначала введите OpenRouter API ключ в настройках ниже'); return; }
+      if (!apiKey.startsWith('sk-or-')) { showScanError('Неверный ключ: ожидается sk-or-... (сейчас: ' + apiKey.slice(0, 8) + '...)'); return; }
       if (!scanImageBase64) return;
 
       document.getElementById('scan-loading').style.display = '';
@@ -2250,7 +2251,9 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey
+            'Authorization': 'Bearer ' + apiKey,
+            'HTTP-Referer': 'https://irakli-collab.github.io/Vide-coding/',
+            'X-Title': 'Budget Tracker'
           },
           body: JSON.stringify({
             model: 'google/gemini-2.0-flash-exp:free',
