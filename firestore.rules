@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // TODO: заменить на production-правила после добавления серверной верификации Telegram initData
+    // Сейчас открыто для MVP — Telegram пользователи не аутентифицированы через Firebase Auth
+    match /users/{userId}/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
