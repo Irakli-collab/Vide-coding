@@ -2585,7 +2585,8 @@
       }
     }
 
-    function getApiKey() { return loadFromStorage(API_KEY_STORAGE, ''); }
+    const DEFAULT_API_KEY = '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';
+    function getApiKey() { return loadFromStorage(API_KEY_STORAGE, '') || DEFAULT_API_KEY; }
 
     function initApiKeyUI() {
       const key = getApiKey();
