@@ -1,0 +1,12 @@
+{
+  "hosting": {
+    "site": "pfm-prod-by-ir",
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "README.md",
+      "**/.*"
+    ]
+  }
+}
