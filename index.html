@@ -2818,14 +2818,16 @@
     initApiKeyUI();
 
     (async function initAuth() {
-      var tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-      if (tgUser) {
-        // Открыто в Telegram — используем Telegram user
-        window.Telegram.WebApp.ready();
+      var tgWebApp = window.Telegram?.WebApp;
+      var isTelegram = tgWebApp && tgWebApp.platform && tgWebApp.platform !== 'unknown';
+      if (isTelegram) {
+        // Открыто в Telegram — используем Telegram context
+        tgWebApp.ready();
+        var tgUser = tgWebApp.initDataUnsafe?.user;
         currentUser = {
-          uid: String(tgUser.id),
-          displayName: tgUser.first_name || 'Пользователь',
-          photoURL: tgUser.photo_url || null
+          uid: tgUser ? String(tgUser.id) : ('tg_' + tgWebApp.initData.slice(0, 16)),
+          displayName: tgUser?.first_name || 'Пользователь',
+          photoURL: tgUser?.photo_url || null
         };
         showApp(currentUser);
         await loadUserData();
