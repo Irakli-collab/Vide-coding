@@ -1129,7 +1129,6 @@
   <!-- Экран авторизации -->
   <div id="auth-screen">
     <div class="auth-card">
-      <div id="tg-debug" style="font-size:11px;color:#f59e0b;word-break:break-all;padding:0 0 8px 0;text-align:left"></div>
       <div id="auth-loading-state" class="auth-loading-text">Загрузка...</div>
       <div id="auth-login-state" style="display:none">
         <div class="auth-logo">
@@ -1509,13 +1508,6 @@
       document.getElementById('auth-login-state').style.display  = loading ? 'none' : '';
       var info = document.getElementById('user-info');
       if (info) info.style.display = 'none';
-      // DEBUG
-      var tg = window.Telegram?.WebApp;
-      var dbg = document.getElementById('tg-debug');
-      if (dbg) dbg.textContent = 'TG:' + (tg ? 'OK' : 'NO')
-        + ' platform:' + (tg?.platform ?? 'n/a')
-        + ' initData:' + (tg?.initData ? 'SET('+tg.initData.slice(0,12)+')' : 'EMPTY')
-        + ' user:' + (tg?.initDataUnsafe?.user?.id ?? 'null');
     }
 
     // ─── Firestore helpers ────────────────────────────────────────────────────
