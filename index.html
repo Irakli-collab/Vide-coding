@@ -2210,7 +2210,12 @@
                 color: isDark ? '#6b7280' : '#718096',
                 font: { family: "'Manrope', sans-serif", size: 11 },
                 maxRotation: 0,
-                callback: (_, i) => (i + 1) % 5 === 1 || (i + 1) === days ? i + 1 : ''
+                callback: (_, i) => {
+                  const d = i + 1;
+                  if (d === 1 || d === days) return d;
+                  if (d % 5 === 0 && !(d === 30 && days === 31)) return d;
+                  return '';
+                }
               }
             },
             y: {
