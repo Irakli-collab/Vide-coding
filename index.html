@@ -522,19 +522,22 @@
     body.light .btn-icon:hover { background: #e2e8f0; }
     body.light .btn-icon.delete:hover { background: #fee2e2; }
 
-    /* Инлайн-редактирование категории */
+    /* Инлайн-редактирование */
     .edit-input {
       padding: 2px 6px;
       border: 1.5px solid var(--primary);
       border-radius: 5px;
       font-family: var(--font);
       font-size: 0.88rem;
-      width: 120px;
+      width: 100%;
       outline: none;
       background: rgba(255,255,255,0.06);
       color: var(--text-dark);
     }
     body.light .edit-input { background: #fff; }
+    .edit-date   { width: 110px; font-size: 0.82rem; padding: 2px 4px; }
+    .edit-amount { width: 76px;  font-size: 0.82rem; padding: 2px 4px; text-align: right; }
+    .edit-cat    { width: 100%; }
 
     .tx-empty {
       text-align: center;
@@ -1087,11 +1090,8 @@
       .report-grid    { grid-template-columns: 1fr; }
       .report-summary { flex-direction: column; }
       .tx-item        { grid-template-columns: 56px 1fr auto auto; gap: 8px; padding: 10px; }
-      .tx-item.editing { grid-template-columns: 56px 1fr; }
-      .tx-item.editing .tx-amount,
-      .tx-item.editing .tx-actions { display: none; }
-      .edit-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-      .edit-row .edit-input { flex: 1; width: auto; }
+      .edit-date { width: 88px; }
+      .edit-amount { width: 60px; }
       .cat-manage-row { flex-wrap: wrap; }
       .cat-manage-row .btn-primary { width: 100%; }
       .history-header { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -1881,43 +1881,64 @@
       render();
     }
 
-    // ─── Редактирование категории (inline) ───────────────────────────────────
+    // ─── Редактирование транзакции (inline) ──────────────────────────────────
 
-    function startEditCategory(id) {
+    function startEditTx(id) {
       const tx = transactions.find(t => t.id === id);
       if (!tx) return;
 
-      const span = document.getElementById('cat-text-' + id);
-      const orig = tx.category;
+      const item = document.getElementById('tx-item-' + id);
+      if (!item) return;
+      item.classList.add('editing');
 
-      const txItem = span.closest('.tx-item');
-      if (txItem) txItem.classList.add('editing');
+      const dateEl = item.querySelector('.tx-date');
+      if (dateEl) dateEl.innerHTML =
+        `<input class="edit-input edit-date" id="edit-date-${id}" type="date" value="${tx.date}">`;
 
-      span.innerHTML = `
-        <div class="edit-row">
-          <input class="edit-input" id="edit-input-${id}" value="${orig}" />
-          <button class="btn-icon" onclick="saveEditCategory(${id})" title="Сохранить">✓</button>
-          <button class="btn-icon" onclick="render()" title="Отмена">✕</button>
-        </div>
-      `;
+      const catEl = document.getElementById('cat-text-' + id);
+      if (catEl) catEl.innerHTML =
+        `<input class="edit-input edit-cat" id="edit-cat-${id}" value="${escHtml(tx.category)}">`;
 
-      const inp = document.getElementById('edit-input-' + id);
-      inp.focus();
-      inp.select();
-      inp.addEventListener('keydown', e => {
-        if (e.key === 'Enter') saveEditCategory(id);
-        if (e.key === 'Escape') render();
+      const amtEl = item.querySelector('.tx-amount');
+      if (amtEl) amtEl.innerHTML =
+        `<input class="edit-input edit-amount" id="edit-amount-${id}" type="number" min="0" step="0.01" value="${tx.amount}">`;
+
+      const actEl = item.querySelector('.tx-actions');
+      if (actEl) actEl.innerHTML =
+        `<button class="btn-icon" onclick="saveEditTx(${id})" title="Сохранить">✓</button>
+         <button class="btn-icon" onclick="render()" title="Отмена">✕</button>`;
+
+      const catInp = document.getElementById('edit-cat-' + id);
+      if (catInp) { catInp.focus(); catInp.select(); }
+
+      ['edit-date-', 'edit-cat-', 'edit-amount-'].forEach(prefix => {
+        const inp = document.getElementById(prefix + id);
+        if (inp) inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter')  saveEditTx(id);
+          if (e.key === 'Escape') render();
+        });
       });
     }
 
-    function saveEditCategory(id) {
-      const inp = document.getElementById('edit-input-' + id);
-      if (!inp) return;
-      const value = inp.value.trim();
-      if (value) {
+    function saveEditTx(id) {
+      const dateInp   = document.getElementById('edit-date-'   + id);
+      const catInp    = document.getElementById('edit-cat-'    + id);
+      const amountInp = document.getElementById('edit-amount-' + id);
+      if (!dateInp || !catInp || !amountInp) return render();
+
+      const newDate   = dateInp.value;
+      const newCat    = catInp.value.trim();
+      const newAmount = parseFloat(amountInp.value);
+
+      if (newCat && newDate && !isNaN(newAmount) && newAmount > 0) {
         const tx = transactions.find(t => t.id === id);
-        if (tx) { tx.category = value; firestoreSaveTx(tx); }
-        saveData(transactions);
+        if (tx) {
+          tx.date     = newDate;
+          tx.category = newCat;
+          tx.amount   = newAmount;
+          firestoreSaveTx(tx);
+          saveData(transactions);
+        }
       }
       render();
     }
@@ -1955,7 +1976,7 @@
       const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
       list.innerHTML = sorted.map((t, i) => `
-        <li class="tx-item animate-in" style="animation-delay:${Math.min(i * 0.04, 0.4)}s; opacity:0">
+        <li class="tx-item animate-in" id="tx-item-${t.id}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s; opacity:0">
           <span class="tx-date">${fmtDate(t.date)}</span>
           <div class="tx-info">
             <span class="tx-category" id="cat-text-${t.id}">
@@ -1967,7 +1988,7 @@
             ${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}
           </span>
           <div class="tx-actions">
-            <button class="btn-icon" onclick="startEditCategory(${t.id})" title="Редактировать категорию">✎</button>
+            <button class="btn-icon" onclick="startEditTx(${t.id})" title="Редактировать">✎</button>
             <button class="btn-icon delete" onclick="deleteTransaction(${t.id})" title="Удалить">✕</button>
           </div>
         </li>
