@@ -1047,6 +1047,11 @@
       .report-grid    { grid-template-columns: 1fr; }
       .report-summary { flex-direction: column; }
       .tx-item        { grid-template-columns: 56px 1fr auto auto; gap: 8px; padding: 10px; }
+      .tx-item.editing { grid-template-columns: 56px 1fr; }
+      .tx-item.editing .tx-amount,
+      .tx-item.editing .tx-actions { display: none; }
+      .edit-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+      .edit-row .edit-input { flex: 1; width: auto; }
       .cat-manage-row { flex-wrap: wrap; }
       .cat-manage-row .btn-primary { width: 100%; }
       .history-header { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -1817,10 +1822,15 @@
       const span = document.getElementById('cat-text-' + id);
       const orig = tx.category;
 
+      const txItem = span.closest('.tx-item');
+      if (txItem) txItem.classList.add('editing');
+
       span.innerHTML = `
-        <input class="edit-input" id="edit-input-${id}" value="${orig}" />
-        <button class="btn-icon" onclick="saveEditCategory(${id})" title="Сохранить">✓</button>
-        <button class="btn-icon" onclick="render()" title="Отмена">✕</button>
+        <div class="edit-row">
+          <input class="edit-input" id="edit-input-${id}" value="${orig}" />
+          <button class="btn-icon" onclick="saveEditCategory(${id})" title="Сохранить">✓</button>
+          <button class="btn-icon" onclick="render()" title="Отмена">✕</button>
+        </div>
       `;
 
       const inp = document.getElementById('edit-input-' + id);
