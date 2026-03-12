@@ -2160,18 +2160,37 @@
       balEl.textContent = (balance >= 0 ? '+' : '−') + fmt(Math.abs(balance));
       balEl.style.color = balance >= 0 ? 'var(--green)' : 'var(--red)';
 
-      const makeGradientFn = (r, g, b) => (context) => {
-        const chart = context.chart;
-        const { ctx, chartArea } = chart;
-        if (!chartArea) return `rgba(${r},${g},${b},0.15)`;
-        const grad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-        grad.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
-        grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        return grad;
+      // Градиент с кэшем — пересоздаётся только при изменении размеров canvas
+      const makeGradientFn = (r, g, b) => {
+        let cached = null, cTop, cBottom;
+        return (context) => {
+          const { ctx, chartArea } = context.chart;
+          if (!chartArea) return `rgba(${r},${g},${b},0.15)`;
+          if (cached && cTop === chartArea.top && cBottom === chartArea.bottom) return cached;
+          cached = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          cached.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
+          cached.addColorStop(1, `rgba(${r},${g},${b},0)`);
+          cTop = chartArea.top; cBottom = chartArea.bottom;
+          return cached;
+        };
       };
 
       const canvas = document.getElementById('daily-chart');
       const monthLabel = now.toLocaleString('ru-RU', { month: 'long' });
+
+      // Уничтожить зависший экземпляр если canvas отсоединён от DOM
+      if (dailyChart && !canvas.isConnected) {
+        dailyChart.destroy();
+        dailyChart = null;
+      }
+
+      if (dailyChart) {
+        dailyChart.data.labels = labels;
+        dailyChart.data.datasets[0].data = incomeTotals;
+        dailyChart.data.datasets[1].data = expenseTotals;
+        dailyChart.update('none');   // без анимации → нет накопления кадров
+        return;
+      }
 
       const datasets = [
         {
@@ -2196,27 +2215,19 @@
         }
       ];
 
-      if (dailyChart) {
-        dailyChart.data.labels = labels;
-        dailyChart.data.datasets[0].data = incomeTotals;
-        dailyChart.data.datasets[1].data = expenseTotals;
-        dailyChart.update('active');
-        return;
-      }
-
       dailyChart = new Chart(canvas, {
         type: 'line',
         data: { labels, datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation: { duration: 700, easing: 'easeInOutQuart' },
+          animation: { duration: 600, easing: 'easeInOutQuart' },
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
-                title: ctx => `${ctx[0].label} ${monthLabel}`,
+                title: ctx => ctx.length ? `${ctx[0].label} ${monthLabel}` : '',
                 label: ctx => {
                   if (ctx.parsed.y <= 0) return null;
                   return (ctx.dataset.label === 'Доходы' ? '↑ ' : '↓ ') + fmt(ctx.parsed.y);
