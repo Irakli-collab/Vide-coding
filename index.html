@@ -664,6 +664,32 @@
     body.light .chart-toggle-btn { background: #f8fafc; }
     body.light .chart-toggle-btn:first-child { border-right-color: #e2e8f0; }
 
+    .chart-legend { display: flex; gap: 16px; align-items: center; }
+    .chart-legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.82rem; color: var(--text-gray);
+    }
+    .chart-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .chart-legend-item.income  .chart-legend-dot { background: rgba(16,185,129,0.9); }
+    .chart-legend-item.expense .chart-legend-dot { background: rgba(99,102,241,0.9); }
+
+    .chart-summary {
+      display: flex; align-items: center;
+      margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .chart-sum-item { flex: 1; text-align: center; }
+    .chart-sum-label {
+      display: block; font-size: 0.72rem; color: var(--text-gray);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
+    }
+    .chart-sum-value { display: block; font-size: 1rem; font-weight: 700; }
+    .chart-sum-value.income  { color: var(--green); }
+    .chart-sum-value.expense { color: var(--red); }
+    .chart-sum-sep { width: 1px; height: 36px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+    body.light .chart-summary { border-top-color: #e2e8f0; }
+    body.light .chart-sum-sep { background: #e2e8f0; }
+
     /* ─── Вкладки (внутри карточек) ─── */
     .tabs {
       display: flex;
@@ -1256,14 +1282,30 @@
   <!-- График по дням -->
   <div class="card chart-card">
     <div class="chart-header">
-      <h2><span id="chart-type-label">Расходы</span> по дням — <span id="chart-month-label"></span></h2>
-      <div class="chart-toggle">
-        <button class="chart-toggle-btn active" id="chart-btn-expense" onclick="setChartMode('expense')">Расходы</button>
-        <button class="chart-toggle-btn" id="chart-btn-income" onclick="setChartMode('income')">Доходы</button>
+      <h2>По дням — <span id="chart-month-label"></span></h2>
+      <div class="chart-legend">
+        <span class="chart-legend-item income"><span class="chart-legend-dot"></span>Доходы</span>
+        <span class="chart-legend-item expense"><span class="chart-legend-dot"></span>Расходы</span>
       </div>
     </div>
     <div class="chart-wrap">
       <canvas id="daily-chart"></canvas>
+    </div>
+    <div class="chart-summary">
+      <div class="chart-sum-item">
+        <span class="chart-sum-label">↑ Доходы</span>
+        <span class="chart-sum-value income" id="chart-sum-income">—</span>
+      </div>
+      <div class="chart-sum-sep"></div>
+      <div class="chart-sum-item">
+        <span class="chart-sum-label">↓ Расходы</span>
+        <span class="chart-sum-value expense" id="chart-sum-expense">—</span>
+      </div>
+      <div class="chart-sum-sep"></div>
+      <div class="chart-sum-item">
+        <span class="chart-sum-label">= Остаток</span>
+        <span class="chart-sum-value" id="chart-sum-balance">—</span>
+      </div>
     </div>
   </div>
 
@@ -2054,20 +2096,9 @@
     // ─── График по дням ──────────────────────────────────────────────────────
 
     let dailyChart = null;
-    let chartMode    = 'expense'; // 'expense' | 'income'
     let reportPeriod = 'month';   // 'week' | 'month' | 'year'
 
-    function setChartMode(mode) {
-      chartMode = mode;
-      document.getElementById('chart-btn-expense').className =
-        'chart-toggle-btn' + (mode === 'expense' ? ' active' : '');
-      document.getElementById('chart-btn-income').className =
-        'chart-toggle-btn' + (mode === 'income' ? ' active income' : '');
-      renderDailyChart();
-    }
-
     function renderDailyChart() {
-      const isExpense = chartMode === 'expense';
       const isDark = !document.body.classList.contains('light');
       const now  = new Date();
       const year = now.getFullYear();
@@ -2075,69 +2106,102 @@
       const cm   = currentMonth();
       const days = new Date(year, mon + 1, 0).getDate();
 
-      document.getElementById('chart-type-label').textContent = isExpense ? 'Расходы' : 'Доходы';
       document.getElementById('chart-month-label').textContent =
         now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
 
-      const dayTotals = new Array(days).fill(0);
+      const incomeTotals  = new Array(days).fill(0);
+      const expenseTotals = new Array(days).fill(0);
       transactions
-        .filter(t => t.type === chartMode && monthKey(t.date) === cm)
+        .filter(t => monthKey(t.date) === cm)
         .forEach(t => {
           const day = parseInt(t.date.slice(8, 10), 10) - 1;
-          if (day >= 0 && day < days) dayTotals[day] += t.amount;
+          if (day < 0 || day >= days) return;
+          if (t.type === 'income')  incomeTotals[day]  += t.amount;
+          if (t.type === 'expense') expenseTotals[day] += t.amount;
         });
 
       const labels = Array.from({ length: days }, (_, i) => i + 1);
-      const today_day = now.getDate();
 
-      const solidColor = isExpense ? 'rgba(99,102,241,0.95)' : 'rgba(16,185,129,0.95)';
-      const fadedColor = isExpense ? 'rgba(99,102,241,0.4)'  : 'rgba(16,185,129,0.4)';
-      const hoverColor = isExpense ? 'rgba(99,102,241,1)'    : 'rgba(16,185,129,1)';
+      // Обновить итоги под графиком
+      const totalIncome  = incomeTotals.reduce((s, v) => s + v, 0);
+      const totalExpense = expenseTotals.reduce((s, v) => s + v, 0);
+      const balance = totalIncome - totalExpense;
+      document.getElementById('chart-sum-income').textContent  = fmt(totalIncome);
+      document.getElementById('chart-sum-expense').textContent = fmt(totalExpense);
+      const balEl = document.getElementById('chart-sum-balance');
+      balEl.textContent = (balance >= 0 ? '+' : '−') + fmt(Math.abs(balance));
+      balEl.style.color = balance >= 0 ? 'var(--green)' : 'var(--red)';
 
-      const bgColors    = labels.map(d => d === today_day ? solidColor : fadedColor);
-      const hoverColors = labels.map(() => hoverColor);
+      const makeGradient = (ctx, r, g, b) => {
+        const h = ctx.canvas.height || 220;
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
+        grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        return grad;
+      };
 
       const canvas = document.getElementById('daily-chart');
+      const ctx2d  = canvas.getContext('2d');
+
+      const monthLabel = now.toLocaleString('ru-RU', { month: 'long' });
+
+      const datasets = [
+        {
+          label: 'Доходы',
+          data: incomeTotals,
+          borderColor: 'rgba(16,185,129,0.9)',
+          backgroundColor: makeGradient(ctx2d, 16, 185, 129),
+          borderWidth: 2, tension: 0.4, fill: true,
+          pointRadius: 0, pointHoverRadius: 5,
+          pointHoverBackgroundColor: 'rgba(16,185,129,1)',
+          pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2,
+        },
+        {
+          label: 'Расходы',
+          data: expenseTotals,
+          borderColor: 'rgba(99,102,241,0.9)',
+          backgroundColor: makeGradient(ctx2d, 99, 102, 241),
+          borderWidth: 2, tension: 0.4, fill: true,
+          pointRadius: 0, pointHoverRadius: 5,
+          pointHoverBackgroundColor: 'rgba(99,102,241,1)',
+          pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2,
+        }
+      ];
 
       if (dailyChart) {
-        dailyChart.data.labels                               = labels;
-        dailyChart.data.datasets[0].data                    = dayTotals;
-        dailyChart.data.datasets[0].label                   = isExpense ? 'Расходы' : 'Доходы';
-        dailyChart.data.datasets[0].backgroundColor         = bgColors;
-        dailyChart.data.datasets[0].hoverBackgroundColor    = hoverColors;
-        dailyChart.update();
+        dailyChart.data.labels = labels;
+        dailyChart.data.datasets[0].data = incomeTotals;
+        dailyChart.data.datasets[0].backgroundColor = makeGradient(ctx2d, 16, 185, 129);
+        dailyChart.data.datasets[1].data = expenseTotals;
+        dailyChart.data.datasets[1].backgroundColor = makeGradient(ctx2d, 99, 102, 241);
+        dailyChart.update('active');
         return;
       }
 
       dailyChart = new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: isExpense ? 'Расходы' : 'Доходы',
-            data: dayTotals,
-            backgroundColor: bgColors,
-            hoverBackgroundColor: hoverColors,
-            borderRadius: 3,
-            borderSkipped: false,
-            barThickness: 6,
-          }]
-        },
+        type: 'line',
+        data: { labels, datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          animation: { duration: 700, easing: 'easeInOutQuart' },
+          interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
-                title: ctx => `${ctx[0].label} ${now.toLocaleString('ru-RU', { month: 'long' })}`,
-                label: ctx => ctx.parsed.y > 0 ? ' ' + fmt(ctx.parsed.y) : ' —'
+                title: ctx => `${ctx[0].label} ${monthLabel}`,
+                label: ctx => {
+                  if (ctx.parsed.y <= 0) return null;
+                  return (ctx.dataset.label === 'Доходы' ? '↑ ' : '↓ ') + fmt(ctx.parsed.y);
+                }
               },
-              backgroundColor: isDark ? '#1a1d2e' : '#1a202c',
-              titleColor:       isDark ? '#6b7280' : '#a0aec0',
-              bodyColor: '#fff',
-              padding: 10,
-              cornerRadius: 8,
+              filter: item => item.parsed.y > 0,
+              backgroundColor: isDark ? '#1e2130' : '#fff',
+              titleColor: isDark ? '#9ca3af' : '#6b7280',
+              bodyColor: isDark ? '#f1f5f9' : '#1a202c',
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+              borderWidth: 1, padding: 12, cornerRadius: 10,
             }
           },
           scales: {
@@ -2154,22 +2218,18 @@
             y: {
               min: 0,
               suggestedMax: 10,
-              grid: {
-                color: isDark ? 'rgba(255,255,255,0.06)' : '#edf2f7',
-                lineWidth: 1,
-              },
-              border: { display: false, dash: [4, 4] },
+              grid: { color: isDark ? 'rgba(255,255,255,0.06)' : '#edf2f7', lineWidth: 1 },
+              border: { display: false },
               ticks: {
                 color: isDark ? '#6b7280' : '#718096',
                 font: { family: "'Manrope', sans-serif", size: 11 },
                 callback: v => v === 0 ? '0' : (v >= 1000 ? (v / 1000).toFixed(0) + 'к' : v)
-              },
+              }
             }
           }
         }
       });
 
-      // Принудительный resize после создания — исправляет 0×0 размеры на мобильном
       requestAnimationFrame(() => { if (dailyChart) dailyChart.resize(); });
     }
 
