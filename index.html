@@ -1405,10 +1405,17 @@
     <div class="card" style="margin-bottom:24px">
       <div class="history-header">
         <h2>История</h2>
-        <div class="chart-toggle">
-          <button class="chart-toggle-btn active" id="hist-btn-all"   onclick="setHistPeriod('all')">Все</button>
-          <button class="chart-toggle-btn"        id="hist-btn-month" onclick="setHistPeriod('month')">Месяц</button>
-          <button class="chart-toggle-btn"        id="hist-btn-week"  onclick="setHistPeriod('week')">Неделя</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <div class="chart-toggle">
+            <button class="chart-toggle-btn active" id="hist-btn-all"   onclick="setHistPeriod('all')">Все</button>
+            <button class="chart-toggle-btn"        id="hist-btn-month" onclick="setHistPeriod('month')">Месяц</button>
+            <button class="chart-toggle-btn"        id="hist-btn-week"  onclick="setHistPeriod('week')">Неделя</button>
+          </div>
+          <div class="chart-toggle">
+            <button class="chart-toggle-btn active" id="hist-type-all"     onclick="setHistType('all')">Все</button>
+            <button class="chart-toggle-btn"        id="hist-type-income"  onclick="setHistType('income')">Доходы</button>
+            <button class="chart-toggle-btn"        id="hist-type-expense" onclick="setHistType('expense')">Расходы</button>
+          </div>
         </div>
       </div>
       <div id="history-content"></div>
@@ -2468,6 +2475,7 @@
 
     let currentView = 'main';
     let histPeriod  = 'all';
+    let histType    = 'all';
 
     function switchView(view) {
       currentView = view;
@@ -2485,6 +2493,14 @@
       histPeriod = p;
       ['all', 'month', 'week'].forEach(x =>
         document.getElementById('hist-btn-' + x).classList.toggle('active', x === p)
+      );
+      renderHistory();
+    }
+
+    function setHistType(t) {
+      histType = t;
+      ['all', 'income', 'expense'].forEach(x =>
+        document.getElementById('hist-type-' + x).classList.toggle('active', x === t)
       );
       renderHistory();
     }
@@ -2531,7 +2547,9 @@
         }
       }
 
-      const filtered = transactions.filter(t => t.date >= startStr && t.date <= endStr);
+      const filtered = transactions
+        .filter(t => t.date >= startStr && t.date <= endStr)
+        .filter(t => histType === 'all' || t.type === histType);
 
       if (filtered.length === 0) {
         document.getElementById('history-content').innerHTML =
