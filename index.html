@@ -524,20 +524,39 @@
 
     /* Инлайн-редактирование */
     .edit-input {
-      padding: 2px 6px;
+      padding: 6px 10px;
       border: 1.5px solid var(--primary);
-      border-radius: 5px;
+      border-radius: 7px;
       font-family: var(--font);
-      font-size: 0.88rem;
-      width: 100%;
+      font-size: 0.9rem;
       outline: none;
       background: rgba(255,255,255,0.06);
       color: var(--text-dark);
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 36px;
     }
-    body.light .edit-input { background: #fff; }
-    .edit-date   { width: 110px; font-size: 0.82rem; padding: 2px 4px; }
-    .edit-amount { width: 76px;  font-size: 0.82rem; padding: 2px 4px; text-align: right; }
-    .edit-cat    { width: 100%; }
+    body.light .edit-input { background: #fff; color: var(--text-dark); }
+    .tx-item.editing {
+      display: flex !important;
+      flex-direction: column;
+      gap: 8px;
+      background: rgba(99,102,241,0.07) !important;
+      border-color: rgba(99,102,241,0.3) !important;
+    }
+    body.light .tx-item.editing { background: #f5f3ff !important; border-color: #c7d2fe !important; }
+    .edit-row { display: flex; gap: 8px; }
+    .edit-date   { flex: 0 0 148px; font-size: 0.85rem; }
+    .edit-amount { flex: 1; text-align: right; font-size: 0.85rem; }
+    .edit-cat    { font-size: 0.9rem; }
+    .edit-row-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px; }
+    .edit-save {
+      background: rgba(99,102,241,0.15); color: rgb(99,102,241);
+      font-weight: 600; padding: 6px 16px; border-radius: 7px; font-size: 0.88rem;
+    }
+    .edit-save:hover { background: rgba(99,102,241,0.28); color: rgb(79,70,229); }
+    .edit-cancel { padding: 6px 16px; border-radius: 7px; font-size: 0.88rem; }
+    body.light .edit-save { background: #e0e7ff; color: #4f46e5; }
 
     .tx-empty {
       text-align: center;
@@ -1090,8 +1109,8 @@
       .report-grid    { grid-template-columns: 1fr; }
       .report-summary { flex-direction: column; }
       .tx-item        { grid-template-columns: 56px 1fr auto auto; gap: 8px; padding: 10px; }
-      .edit-date { width: 88px; }
-      .edit-amount { width: 60px; }
+      .edit-date   { flex: 0 0 130px; }
+      .edit-amount { flex: 1; }
       .cat-manage-row { flex-wrap: wrap; }
       .cat-manage-row .btn-primary { width: 100%; }
       .history-header { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -1891,22 +1910,16 @@
       if (!item) return;
       item.classList.add('editing');
 
-      const dateEl = item.querySelector('.tx-date');
-      if (dateEl) dateEl.innerHTML =
-        `<input class="edit-input edit-date" id="edit-date-${id}" type="date" value="${tx.date}">`;
-
-      const catEl = document.getElementById('cat-text-' + id);
-      if (catEl) catEl.innerHTML =
-        `<input class="edit-input edit-cat" id="edit-cat-${id}" value="${escHtml(tx.category)}">`;
-
-      const amtEl = item.querySelector('.tx-amount');
-      if (amtEl) amtEl.innerHTML =
-        `<input class="edit-input edit-amount" id="edit-amount-${id}" type="number" min="0" step="0.01" value="${tx.amount}">`;
-
-      const actEl = item.querySelector('.tx-actions');
-      if (actEl) actEl.innerHTML =
-        `<button class="btn-icon" onclick="saveEditTx(${id})" title="Сохранить">✓</button>
-         <button class="btn-icon" onclick="render()" title="Отмена">✕</button>`;
+      item.innerHTML = `
+        <div class="edit-row">
+          <input class="edit-input edit-date" id="edit-date-${id}" type="date" value="${tx.date}">
+          <input class="edit-input edit-amount" id="edit-amount-${id}" type="number" min="0" step="0.01" value="${tx.amount}" placeholder="Сумма">
+        </div>
+        <input class="edit-input edit-cat" id="edit-cat-${id}" value="${escHtml(tx.category)}" placeholder="Категория">
+        <div class="edit-row-actions">
+          <button class="btn-icon edit-cancel" onclick="render()" title="Отмена">✕ Отмена</button>
+          <button class="btn-icon edit-save" onclick="saveEditTx(${id})" title="Сохранить">✓ Сохранить</button>
+        </div>`;
 
       const catInp = document.getElementById('edit-cat-' + id);
       if (catInp) { catInp.focus(); catInp.select(); }
@@ -1918,6 +1931,8 @@
           if (e.key === 'Escape') render();
         });
       });
+
+      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function saveEditTx(id) {
