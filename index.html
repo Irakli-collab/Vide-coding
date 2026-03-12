@@ -272,6 +272,13 @@
     }
     .csel-opt:hover { background: rgba(255,255,255,0.07); }
     .csel-opt.selected { color: var(--primary); }
+    .csel-opt-del {
+      background: none; border: none; cursor: pointer; color: var(--text-gray);
+      font-size: 0.75rem; padding: 2px 5px; border-radius: 3px; line-height: 1;
+      opacity: 0.5; flex-shrink: 0;
+    }
+    .csel-opt-del:hover { opacity: 1; color: var(--red); background: rgba(239,68,68,0.12); }
+    body.light .csel-opt-del:hover { background: #fee2e2; }
     body.light .csel-trigger { background: #f8fafc; border-color: #e2e8f0; }
     body.light .csel-trigger.open { background: #fff; border-color: var(--primary); }
     body.light .csel-list { background: #fff; border-color: #e2e8f0; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
@@ -1290,7 +1297,10 @@
             <label for="category">Категория</label>
             <select id="category"></select>
             <div id="custom-category-wrap">
-              <input type="text" id="custom-category" placeholder="Введите категорию">
+              <div class="cat-manage-row" style="margin-bottom:0;margin-top:8px">
+                <input type="text" id="custom-category" placeholder="Название категории">
+                <button type="button" class="btn-primary" onclick="addInlineCategory()">Добавить</button>
+              </div>
             </div>
           </div>
 
@@ -1306,28 +1316,6 @@
 
           <button type="submit" class="btn-primary">Добавить</button>
         </form>
-      </div>
-
-      <!-- Управление категориями -->
-      <div class="card">
-        <h2>Категории</h2>
-
-        <div class="form-group">
-          <label>Тип</label>
-          <div class="type-toggle">
-            <input type="radio" name="cat-type" id="cat-type-expense" value="expense" checked>
-            <label for="cat-type-expense">Расходы</label>
-            <input type="radio" name="cat-type" id="cat-type-income" value="income">
-            <label for="cat-type-income">Доходы</label>
-          </div>
-        </div>
-
-        <div class="cat-manage-row">
-          <input type="text" id="new-cat-input" placeholder="Название новой категории">
-          <button class="btn-primary" onclick="addCustomCategory()">Добавить</button>
-        </div>
-
-        <div id="custom-cat-list"></div>
       </div>
 
       <!-- Аналитика -->
@@ -1699,7 +1687,7 @@
         const lower = q.toLowerCase();
         let anyVisible = false;
         list.querySelectorAll('.csel-opt').forEach(item => {
-          const match = item.textContent.toLowerCase().includes(lower);
+          const match = (item.dataset.label || '').toLowerCase().includes(lower);
           item.style.display = match ? '' : 'none';
           if (match) anyVisible = true;
         });
@@ -1718,8 +1706,8 @@
       Array.from(nativeSel.options).forEach((opt, i) => {
         const item = document.createElement('div');
         item.className = 'csel-opt' + (i === nativeSel.selectedIndex ? ' selected' : '');
-        item.textContent = opt.text;
         item.dataset.value = opt.value;
+        item.dataset.label = opt.text;
         item.addEventListener('mousedown', e => { e.preventDefault(); });
         item.addEventListener('click', () => {
           nativeSel.value = opt.value;
@@ -1729,6 +1717,29 @@
           closeList();
           nativeSel.dispatchEvent(new Event('change'));
         });
+        if (opt.dataset.custom) {
+          item.style.cssText = 'display:flex;align-items:center;';
+          const nameSpan = document.createElement('span');
+          nameSpan.style.flex = '1';
+          nameSpan.textContent = opt.text;
+          item.appendChild(nameSpan);
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'csel-opt-del';
+          delBtn.textContent = '✕';
+          delBtn.title = 'Удалить категорию';
+          delBtn.addEventListener('mousedown', e => e.stopPropagation());
+          delBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            const type = document.querySelector('input[name="type"]:checked').value;
+            const idx = customCats[type].indexOf(opt.value);
+            if (idx !== -1) { customCats[type].splice(idx, 1); saveCustomCats(); buildCategorySelect(); }
+            closeList();
+          });
+          item.appendChild(delBtn);
+        } else {
+          item.textContent = opt.text;
+        }
         list.appendChild(item);
       });
 
@@ -1764,6 +1775,7 @@
       cats.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c; opt.textContent = catLabel(c);
+        if (customCats[type].includes(c)) opt.dataset.custom = '1';
         sel.appendChild(opt);
       });
 
@@ -2269,12 +2281,11 @@
     function refreshCategoryUI() {
       buildCategorySelect();
       buildLimitCategorySelect();
-      renderCustomCategories();
     }
 
-    function addCustomCategory() {
-      const type  = document.querySelector('input[name="cat-type"]:checked').value;
-      const input = document.getElementById('new-cat-input');
+    function addInlineCategory() {
+      const type  = document.querySelector('input[name="type"]:checked').value;
+      const input = document.getElementById('custom-category');
       const name  = input.value.trim();
       if (!name) return;
       if (CATEGORIES[type].includes(name) || customCats[type].includes(name)) {
@@ -2283,32 +2294,18 @@
       customCats[type].push(name);
       saveCustomCats();
       input.value = '';
-      document.querySelector(`input[name="type"][value="${type}"]`).checked = true;
-      refreshCategoryUI();
-    }
-
-    function deleteCustomCategory(type, idx) {
-      customCats[type].splice(idx, 1);
-      saveCustomCats();
-      refreshCategoryUI();
-    }
-
-    function renderCustomCategories() {
-      const type = document.querySelector('input[name="cat-type"]:checked').value;
-      const list = customCats[type];
-      const container = document.getElementById('custom-cat-list');
-      if (list.length === 0) {
-        container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-gray);padding:8px 0">Нет пользовательских категорий</p>';
-        return;
+      buildCategorySelect();
+      // Автовыбор новой категории
+      const sel = document.getElementById('category');
+      sel.value = name;
+      const cselWrap = sel.parentNode.querySelector('.csel-wrap');
+      if (cselWrap) {
+        cselWrap.querySelector('.csel-trigger').textContent = catLabel(name);
+        cselWrap.querySelectorAll('.csel-opt').forEach(o => {
+          o.classList.toggle('selected', o.dataset.value === name);
+        });
       }
-      container.innerHTML = '<ul class="custom-cat-list">' +
-        list.map((name, idx) => `
-          <li class="custom-cat-item">
-            <span>${escHtml(catLabel(name))}</span>
-            <button class="btn-icon delete" onclick="deleteCustomCategory('${type}', ${idx})" title="Удалить">✕</button>
-          </li>
-        `).join('') +
-        '</ul>';
+      document.getElementById('custom-category-wrap').style.display = 'none';
     }
 
     // ─── Отчёт ───────────────────────────────────────────────────────────────
@@ -2840,14 +2837,9 @@
       if (e.key === 'Enter') { e.preventDefault(); confirmLimitNewCategory(); }
     });
 
-    // Переключение типа в карточке категорий
-    document.querySelectorAll('input[name="cat-type"]').forEach(r =>
-      r.addEventListener('change', renderCustomCategories)
-    );
-
-    // Enter в поле новой категории
-    document.getElementById('new-cat-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); }
+    // Enter в поле инлайн-добавления категории
+    document.getElementById('custom-category').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addInlineCategory(); }
     });
 
     // Перенести форму в слот модалки
@@ -2863,7 +2855,6 @@
 
     buildCategorySelect();
     buildLimitCategorySelect();
-    renderCustomCategories();
     applyTheme(localStorage.getItem('budget_theme') === 'light');
 
     // Scan: upload zone events
