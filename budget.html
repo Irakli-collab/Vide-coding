@@ -2132,17 +2132,17 @@
       balEl.textContent = (balance >= 0 ? '+' : '−') + fmt(Math.abs(balance));
       balEl.style.color = balance >= 0 ? 'var(--green)' : 'var(--red)';
 
-      const makeGradient = (ctx, r, g, b) => {
-        const h = ctx.canvas.height || 220;
-        const grad = ctx.createLinearGradient(0, 0, 0, h);
+      const makeGradientFn = (r, g, b) => (context) => {
+        const chart = context.chart;
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return `rgba(${r},${g},${b},0.15)`;
+        const grad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
         grad.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
         grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
         return grad;
       };
 
       const canvas = document.getElementById('daily-chart');
-      const ctx2d  = canvas.getContext('2d');
-
       const monthLabel = now.toLocaleString('ru-RU', { month: 'long' });
 
       const datasets = [
@@ -2150,7 +2150,7 @@
           label: 'Доходы',
           data: incomeTotals,
           borderColor: 'rgba(16,185,129,0.9)',
-          backgroundColor: makeGradient(ctx2d, 16, 185, 129),
+          backgroundColor: makeGradientFn(16, 185, 129),
           borderWidth: 2, tension: 0.4, fill: true,
           pointRadius: 0, pointHoverRadius: 5,
           pointHoverBackgroundColor: 'rgba(16,185,129,1)',
@@ -2160,7 +2160,7 @@
           label: 'Расходы',
           data: expenseTotals,
           borderColor: 'rgba(99,102,241,0.9)',
-          backgroundColor: makeGradient(ctx2d, 99, 102, 241),
+          backgroundColor: makeGradientFn(99, 102, 241),
           borderWidth: 2, tension: 0.4, fill: true,
           pointRadius: 0, pointHoverRadius: 5,
           pointHoverBackgroundColor: 'rgba(99,102,241,1)',
@@ -2171,9 +2171,7 @@
       if (dailyChart) {
         dailyChart.data.labels = labels;
         dailyChart.data.datasets[0].data = incomeTotals;
-        dailyChart.data.datasets[0].backgroundColor = makeGradient(ctx2d, 16, 185, 129);
         dailyChart.data.datasets[1].data = expenseTotals;
-        dailyChart.data.datasets[1].backgroundColor = makeGradient(ctx2d, 99, 102, 241);
         dailyChart.update('active');
         return;
       }
@@ -2230,7 +2228,6 @@
         }
       });
 
-      requestAnimationFrame(() => { if (dailyChart) dailyChart.resize(); });
     }
 
     // ─── Тема ────────────────────────────────────────────────────────────────
