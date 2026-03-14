@@ -863,6 +863,108 @@
       margin-bottom: 12px;
     }
 
+    /* ─── Donut-диаграммы в отчёте ─── */
+    .report-donut-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .report-donut-wrap {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 16px;
+    }
+    .report-donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .report-donut-center-val {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+    .report-donut-center-lbl {
+      font-size: 0.65rem;
+      color: var(--text-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .report-legend {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 4px;
+    }
+    .report-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.83rem;
+    }
+    .report-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .report-legend-name {
+      flex: 1;
+      color: var(--text-dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .report-legend-val {
+      font-weight: 600;
+      color: var(--text-dark);
+      white-space: nowrap;
+    }
+    .report-legend-pct {
+      color: var(--text-gray);
+      font-weight: 400;
+      min-width: 38px;
+      text-align: right;
+    }
+    .report-no-data {
+      font-size: 0.85rem;
+      color: var(--text-gray);
+      text-align: center;
+      padding: 40px 0;
+    }
+
+    /* ─── Печать / PDF ─── */
+    @media print {
+      body > *                   { display: none !important; }
+      #view-main                 { display: block !important; }
+      #view-main > *             { display: none !important; }
+      #view-main > .card:last-child { display: block !important; }
+      .report-header button,
+      .report-toggle,
+      #copy-report-btn           { display: none !important; }
+      body {
+        background: #fff !important;
+        padding: 0 !important;
+      }
+      .card {
+        background: #fff !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+      .report-stat {
+        background: #f8fafc !important;
+        border-color: #e2e8f0 !important;
+      }
+      .report-donut-wrap { width: 160px; height: 160px; }
+    }
+
     /* ─── Управление категориями ─── */
     .cat-manage-row {
       display: flex;
@@ -1496,8 +1598,8 @@
           <button class="report-btn active" id="report-btn-month" onclick="setReportPeriod('month')">Месяц</button>
           <button class="report-btn" id="report-btn-year"  onclick="setReportPeriod('year')">Год</button>
         </div>
-        <button class="btn-icon" id="copy-report-btn" onclick="copyReport()" title="Копировать отчёт" style="font-size:1.1rem;padding:6px 8px">📋</button>
-        <button class="btn-icon" onclick="exportCSV()" title="Экспорт в CSV" style="font-size:1rem;padding:6px 8px">⬇ CSV</button>
+        <button class="btn-icon" onclick="exportPDF()" title="Скачать PDF" style="font-size:0.82rem;padding:6px 10px;font-weight:600">📄 PDF</button>
+        <button class="btn-icon" onclick="exportCSV()" title="Экспорт в CSV" style="font-size:0.82rem;padding:6px 10px;font-weight:600">⬇ CSV</button>
       </div>
     </div>
     <div id="report-content"></div>
@@ -2246,6 +2348,14 @@
     const gradientPrimary = makeGradientFn(99, 102, 241);
 
     let dailyChart = null;
+    let reportExpChart = null;
+    let reportIncChart = null;
+
+    const REPORT_PALETTE = [
+      '#6366f1','#10b981','#f59e0b','#ef4444',
+      '#8b5cf6','#06b6d4','#ec4899','#84cc16',
+      '#f97316','#14b8a6'
+    ];
     let reportPeriod = 'month';   // 'week' | 'month' | 'year'
     let chartMonthOffset = 0;     // 0 = текущий, -1 = прошлый и т.д.
 
@@ -2583,27 +2693,66 @@
       renderReport();
     }
 
-    function buildCatHtml(txList, isIncome) {
-      if (txList.length === 0)
-        return '<p style="font-size:0.85rem;color:var(--text-gray)">Нет данных за период</p>';
+    function buildCatMap(txList) {
       const map = {};
       txList.forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
-      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
-      const max    = sorted[0][1];
+      return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    }
+
+    function buildReportDonut(canvasId, txList, isIncome, chartRef) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return null;
+      if (chartRef) { chartRef.destroy(); }
+
+      const sorted = buildCatMap(txList);
       const total  = txList.reduce((s, t) => s + t.amount, 0);
-      return sorted.map(([cat, sum]) => {
-        const pct    = total > 0 ? Math.round(sum / total * 100) : 0;
-        const barCls = isIncome ? 'cat-bar income' : 'cat-bar';
-        return `
-          <div class="cat-row">
-            <div>
-              <div class="cat-label">${escHtml(catLabel(cat))}</div>
-              <div class="cat-bar-wrap">
-                <div class="${barCls}" style="width:${Math.round(sum/max*100)}%"></div>
-              </div>
-            </div>
-            <div class="cat-amount">${fmt(sum)} <span style="font-weight:400;color:var(--text-gray)">(${pct}%)</span></div>
-          </div>`;
+      const isDark = !document.body.classList.contains('light');
+
+      const labels = sorted.map(([cat]) => catLabel(cat));
+      const data   = sorted.map(([, sum]) => sum);
+      const colors = sorted.map((_, i) => REPORT_PALETTE[i % REPORT_PALETTE.length]);
+
+      return new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2,
+          borderColor: isDark ? '#1a1d2e' : '#ffffff', hoverOffset: 6 }] },
+        options: {
+          cutout: '68%',
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 500 },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+                  return ` ${fmt(ctx.parsed)} (${pct}%)`;
+                }
+              },
+              backgroundColor: isDark ? '#1e2130' : '#fff',
+              titleColor: isDark ? '#9ca3af' : '#6b7280',
+              bodyColor: isDark ? '#f1f5f9' : '#1a202c',
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+              borderWidth: 1, padding: 10, cornerRadius: 8
+            }
+          }
+        }
+      });
+    }
+
+    function buildLegendHtml(txList, total) {
+      const sorted = buildCatMap(txList);
+      if (sorted.length === 0) return '';
+      return sorted.map(([cat, sum], i) => {
+        const pct = total > 0 ? Math.round(sum / total * 100) : 0;
+        const color = REPORT_PALETTE[i % REPORT_PALETTE.length];
+        return `<div class="report-legend-item">
+          <div class="report-legend-dot" style="background:${color}"></div>
+          <span class="report-legend-name">${escHtml(catLabel(cat))}</span>
+          <span class="report-legend-val">${fmt(sum)}</span>
+          <span class="report-legend-pct">${pct}%</span>
+        </div>`;
       }).join('');
     }
 
@@ -2621,6 +2770,9 @@
       const balSign      = balance >= 0 ? '+' : '−';
       const balColor     = balance >= 0 ? 'var(--green)' : 'var(--red)';
 
+      const expNoData = expense.length === 0;
+      const incNoData = income.length === 0;
+
       document.getElementById('report-content').innerHTML = `
         <div class="report-summary">
           <div class="report-stat">
@@ -2637,72 +2789,47 @@
           </div>
         </div>
         <div class="report-grid">
-          <div>
+          <div class="report-donut-section">
             <div class="report-col-title">Расходы по категориям</div>
-            ${buildCatHtml(expense, false)}
+            ${expNoData
+              ? '<div class="report-no-data">Нет данных за период</div>'
+              : `<div class="report-donut-wrap">
+                  <canvas id="report-exp-chart"></canvas>
+                  <div class="report-donut-center">
+                    <div class="report-donut-center-val expense-val">${fmt(totalExpense)}</div>
+                    <div class="report-donut-center-lbl">расходы</div>
+                  </div>
+                </div>
+                <div class="report-legend">${buildLegendHtml(expense, totalExpense)}</div>`
+            }
           </div>
-          <div>
+          <div class="report-donut-section">
             <div class="report-col-title">Доходы по категориям</div>
-            ${buildCatHtml(income, true)}
+            ${incNoData
+              ? '<div class="report-no-data">Нет данных за период</div>'
+              : `<div class="report-donut-wrap">
+                  <canvas id="report-inc-chart"></canvas>
+                  <div class="report-donut-center">
+                    <div class="report-donut-center-val income-val">${fmt(totalIncome)}</div>
+                    <div class="report-donut-center-lbl">доходы</div>
+                  </div>
+                </div>
+                <div class="report-legend">${buildLegendHtml(income, totalIncome)}</div>`
+            }
           </div>
         </div>`;
+
+      if (!expNoData) {
+        reportExpChart = buildReportDonut('report-exp-chart', expense, false, reportExpChart);
+      } else { reportExpChart = null; }
+
+      if (!incNoData) {
+        reportIncChart = buildReportDonut('report-inc-chart', income, true, reportIncChart);
+      } else { reportIncChart = null; }
     }
 
-    function copyReport() {
-      const { startStr, endStr, label } = getPeriodRange(reportPeriod);
-      const txs     = transactions.filter(t => t.date >= startStr && t.date <= endStr);
-      const income  = txs.filter(t => t.type === 'income');
-      const expense = txs.filter(t => t.type === 'expense');
-
-      const totalIncome  = income.reduce((s, t)  => s + t.amount, 0);
-      const totalExpense = expense.reduce((s, t) => s + t.amount, 0);
-      const balance      = totalIncome - totalExpense;
-
-      const aggregateCats = list => {
-        const map = {};
-        list.forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
-        return Object.entries(map).sort((a, b) => b[1] - a[1]);
-      };
-      const fmtCats = (groups, total) =>
-        groups.length === 0 ? '  —' :
-        groups.map(([cat, sum]) => {
-          const pct = total > 0 ? Math.round(sum / total * 100) : 0;
-          return `  ${cat}: ${fmt(sum)} (${pct}%)`;
-        }).join('\n');
-
-      const expGroups = aggregateCats(expense);
-      const incGroups = aggregateCats(income);
-
-      const lines = [
-        `📊 Отчёт: ${label}`,
-        '',
-        `Доходы:  ${fmt(totalIncome)}`,
-        `Расходы: ${fmt(totalExpense)}`,
-        `Баланс:  ${balance >= 0 ? '+' : '−'}${fmt(Math.abs(balance))}`,
-        '',
-        'Расходы по категориям:',
-        fmtCats(expGroups, totalExpense),
-        '',
-        'Доходы по категориям:',
-        fmtCats(incGroups, totalIncome),
-      ].join('\n');
-
-      const btn = document.getElementById('copy-report-btn');
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(lines).then(() => {
-          btn.textContent = '✅';
-          setTimeout(() => { btn.textContent = '📋'; }, 1500);
-        });
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = lines; ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta); ta.select();
-        let ok = false;
-        try { ok = document.execCommand('copy'); } catch(e) {}
-        document.body.removeChild(ta);
-        btn.textContent = ok ? '✅' : '❌';
-        setTimeout(() => { btn.textContent = '📋'; }, 1500);
-      }
+    function exportPDF() {
+      window.print();
     }
 
     function exportCSV() {
