@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <title>FinVibe</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='48' height='48' viewBox='0 0 120 120' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='120' height='120' rx='28' fill='url(%23gradA)'/%3E%3Cdefs%3E%3ClinearGradient id='gradA' x1='0' y1='0' x2='120' y2='120'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='100%25' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='24' y='72' width='14' height='28' rx='4' fill='white' opacity='0.4'/%3E%3Crect x='44' y='54' width='14' height='46' rx='4' fill='white' opacity='0.6'/%3E%3Crect x='64' y='38' width='14' height='62' rx='4' fill='white' opacity='0.8'/%3E%3Crect x='84' y='22' width='14' height='78' rx='4' fill='white'/%3E%3Cpolyline points='31,72 51,54 71,38 91,22' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' opacity='0.5' fill='none'/%3E%3C/svg%3E">
+  <link rel="manifest" href="/manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1204,6 +1205,34 @@
       .user-name { max-width: 70px; }
       .auth-card { padding: 36px 24px; }
     }
+
+    /* ─── Toast / Snackbar ─── */
+    #toast-container {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      z-index: 250; pointer-events: none; width: max-content; max-width: calc(100vw - 32px);
+    }
+    @media (max-width: 780px) { #toast-container { bottom: 72px; } }
+    .toast {
+      pointer-events: auto; display: flex; align-items: center; gap: 12px;
+      padding: 12px 18px; border-radius: 10px; background: var(--card);
+      border: 1px solid var(--card-border); box-shadow: var(--shadow);
+      font-size: 0.9rem; font-weight: 500; color: var(--text-dark); white-space: nowrap;
+      animation: toast-in 0.28s ease forwards;
+    }
+    .toast.hiding { animation: toast-out 0.22s ease forwards; }
+    .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .toast.info .toast-dot { background: var(--green); }
+    .toast.warn .toast-dot, .toast.undo .toast-dot { background: var(--amber); }
+    .toast-undo-btn {
+      background: none; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px;
+      color: var(--text-dark); font-size: 0.82rem; font-weight: 700;
+      padding: 4px 10px; cursor: pointer; flex-shrink: 0;
+    }
+    .toast-undo-btn:hover { background: rgba(255,255,255,0.1); }
+    body.light .toast-undo-btn { border-color: rgba(0,0,0,0.14); }
+    @keyframes toast-in  { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes toast-out { from { opacity:1; transform:translateY(0); }   to { opacity:0; transform:translateY(12px); } }
   </style>
 </head>
 <body>
@@ -1310,7 +1339,11 @@
   <!-- График по дням -->
   <div class="card chart-card">
     <div class="chart-header">
-      <h2>По дням — <span id="chart-month-label"></span></h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn-icon" id="chart-prev-btn" onclick="shiftChartMonth(-1)" title="Предыдущий месяц" style="font-size:1rem;padding:4px 8px">‹</button>
+        <h2 style="margin:0">По дням — <span id="chart-month-label"></span></h2>
+        <button class="btn-icon" id="chart-next-btn" onclick="shiftChartMonth(1)" title="Следующий месяц" style="font-size:1rem;padding:4px 8px">›</button>
+      </div>
       <div class="chart-legend">
         <span class="chart-legend-item income"><span class="chart-legend-dot"></span>Доходы</span>
         <span class="chart-legend-item expense"><span class="chart-legend-dot"></span>Расходы</span>
@@ -1464,6 +1497,7 @@
           <button class="report-btn" id="report-btn-year"  onclick="setReportPeriod('year')">Год</button>
         </div>
         <button class="btn-icon" id="copy-report-btn" onclick="copyReport()" title="Копировать отчёт" style="font-size:1.1rem;padding:6px 8px">📋</button>
+        <button class="btn-icon" onclick="exportCSV()" title="Экспорт в CSV" style="font-size:1rem;padding:6px 8px">⬇ CSV</button>
       </div>
     </div>
     <div id="report-content"></div>
@@ -1488,6 +1522,11 @@
           </div>
         </div>
       </div>
+      <input type="text" id="hist-search" placeholder="🔍 Поиск по категории, комментарию, сумме…"
+        oninput="renderHistory()"
+        style="width:100%;box-sizing:border-box;margin-top:12px;padding:9px 12px;
+               border-radius:9px;border:1px solid var(--card-border);background:var(--card);
+               color:var(--text-dark);font-family:var(--font);font-size:0.88rem;outline:none">
       <div id="history-content"></div>
     </div>
   </div>
@@ -1549,7 +1588,37 @@
     </div>
   </div>
 
+  <div id="toast-container"></div>
+
   <script>
+    // ─── Toast system ─────────────────────────────────────────────────────────
+    function _dismissToast(el) {
+      el.classList.add('hiding');
+      el.addEventListener('animationend', () => el.parentNode && el.parentNode.removeChild(el), { once: true });
+    }
+    function showToast(msg, type = 'info') {
+      const c = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'toast ' + type;
+      el.innerHTML = `<span class="toast-dot"></span><span>${msg}</span>`;
+      c.appendChild(el);
+      el._t = setTimeout(() => _dismissToast(el), 3000);
+    }
+    function showUndoToast(msg, onUndo) {
+      const c = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'toast undo'; let undone = false;
+      el.innerHTML = `<span class="toast-dot"></span><span>${msg}</span>
+        <button class="toast-undo-btn" type="button">Отменить</button>`;
+      el.querySelector('.toast-undo-btn').addEventListener('click', () => {
+        if (undone) return; undone = true;
+        clearTimeout(el._t); _dismissToast(el); onUndo();
+      });
+      c.appendChild(el);
+      el._t = setTimeout(() => { if (!undone) _dismissToast(el); }, 4200);
+      return () => undone;
+    }
+
     // ─── Firebase ─────────────────────────────────────────────────────────────
 
     firebase.initializeApp({
@@ -1810,7 +1879,11 @@
             e.stopPropagation();
             const type = document.querySelector('input[name="type"]:checked').value;
             const idx = customCats[type].indexOf(opt.value);
-            if (idx !== -1) { customCats[type].splice(idx, 1); saveCustomCats(); buildCategorySelect(); }
+            if (idx !== -1) {
+              const count = transactions.filter(t => t.category === opt.value).length;
+              if (count > 0 && !confirm(`Удалить категорию «${opt.value}»?\n${count} транзакций останутся с этой категорией.`)) return;
+              customCats[type].splice(idx, 1); saveCustomCats(); buildCategorySelect();
+            }
             closeList();
           });
           item.appendChild(delBtn);
@@ -1833,8 +1906,6 @@
           setTimeout(() => searchInput.focus(), 50);
         }
       });
-
-      document.addEventListener('click', closeList);
 
       wrap.appendChild(trigger);
       wrap.appendChild(list);
@@ -1891,15 +1962,28 @@
       firestoreSaveTx(newTx);
       render();
       closeTxModal();
+      showToast(`${type==='income'?'↑':'↓'} ${fmt(amount)} — ${catLabel(category)}`);
+      if (type === 'expense' && limits[category]) {
+        const spent = transactions
+          .filter(t => t.type==='expense' && t.category===category && monthKey(t.date)===currentMonth())
+          .reduce((s,t) => s+t.amount, 0);
+        if (spent >= limits[category])
+          setTimeout(() => showToast(`⚠️ Лимит по «${catLabel(category)}» превышен!`, 'warn'), 400);
+      }
     });
 
     // ─── Удаление ────────────────────────────────────────────────────────────
 
     function deleteTransaction(id) {
-      firestoreDeleteTx(id);
+      const tx = transactions.find(t => t.id === id);
+      if (!tx) return;
       transactions = transactions.filter(t => t.id !== id);
-      saveData(transactions);
-      render();
+      saveData(transactions); renderTransactions();
+      let undone = false;
+      showUndoToast(`Удалено: ${catLabel(tx.category)} ${fmt(tx.amount)}`, () => {
+        undone = true; transactions.unshift(tx); saveData(transactions); firestoreSaveTx(tx); render();
+      });
+      setTimeout(() => { if (!undone) firestoreDeleteTx(id); }, 4500);
     }
 
     // ─── Редактирование транзакции (inline) ──────────────────────────────────
@@ -1918,6 +2002,7 @@
           <input class="edit-input edit-amount" id="edit-amount-${id}" type="number" min="0" step="0.01" value="${tx.amount}" placeholder="Сумма">
         </div>
         <input class="edit-input edit-cat" id="edit-cat-${id}" value="${escHtml(tx.category)}" placeholder="Категория">
+        <input class="edit-input" id="edit-comment-${id}" value="${escHtml(tx.comment||'')}" placeholder="Комментарий">
         <div class="edit-row-actions">
           <button class="btn-icon edit-cancel" onclick="render()" title="Отмена">✕ Отмена</button>
           <button class="btn-icon edit-save" onclick="saveEditTx(${id})" title="Сохранить">✓ Сохранить</button>
@@ -1926,7 +2011,7 @@
       const catInp = document.getElementById('edit-cat-' + id);
       if (catInp) { catInp.focus(); catInp.select(); }
 
-      ['edit-date-', 'edit-cat-', 'edit-amount-'].forEach(prefix => {
+      ['edit-date-', 'edit-cat-', 'edit-amount-', 'edit-comment-'].forEach(prefix => {
         const inp = document.getElementById(prefix + id);
         if (inp) inp.addEventListener('keydown', e => {
           if (e.key === 'Enter')  saveEditTx(id);
@@ -1953,9 +2038,13 @@
           tx.date     = newDate;
           tx.category = newCat;
           tx.amount   = newAmount;
+          tx.comment  = (document.getElementById('edit-comment-' + id)?.value ?? '').trim();
           firestoreSaveTx(tx);
           saveData(transactions);
         }
+      } else {
+        showToast('Заполните все поля корректно', 'warn');
+        return;
       }
       render();
     }
@@ -2158,17 +2247,30 @@
 
     let dailyChart = null;
     let reportPeriod = 'month';   // 'week' | 'month' | 'year'
+    let chartMonthOffset = 0;     // 0 = текущий, -1 = прошлый и т.д.
+
+    function shiftChartMonth(delta) {
+      const newOffset = chartMonthOffset + delta;
+      if (newOffset > 0) return;
+      chartMonthOffset = newOffset;
+      if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
+      renderDailyChart();
+    }
 
     function renderDailyChart() {
       const isDark = !document.body.classList.contains('light');
-      const now  = new Date();
+      const today = new Date();
+      const now  = new Date(today.getFullYear(), today.getMonth() + chartMonthOffset, 1);
       const year = now.getFullYear();
       const mon  = now.getMonth();
-      const cm   = currentMonth();
+      const cm   = `${year}-${String(mon + 1).padStart(2, '0')}`;
       const days = new Date(year, mon + 1, 0).getDate();
 
       document.getElementById('chart-month-label').textContent =
         now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+      const nextBtn = document.getElementById('chart-next-btn');
+      if (nextBtn) nextBtn.disabled = chartMonthOffset >= 0;
+      if (nextBtn) nextBtn.style.opacity = chartMonthOffset >= 0 ? '0.3' : '';
 
       const incomeTotals  = new Array(days).fill(0);
       const expenseTotals = new Array(days).fill(0);
@@ -2601,6 +2703,17 @@
       }
     }
 
+    function exportCSV() {
+      const rows = [['Дата','Тип','Категория','Сумма','Комментарий']];
+      transactions.forEach(t => rows.push([t.date, t.type, t.category, t.amount, t.comment||'']));
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const a = Object.assign(document.createElement('a'), {
+        href: 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv),
+        download: `finvibe-${new Date().toISOString().slice(0,10)}.csv`
+      });
+      a.click();
+    }
+
     // ─── История ─────────────────────────────────────────────────────────────
 
     let currentView = 'main';
@@ -2669,7 +2782,7 @@
         const localStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
         endStr = '9999-99-99';
         if (histPeriod === 'week') {
-          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
           startStr = localStr(d);
         } else {
           const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -2677,13 +2790,18 @@
         }
       }
 
+      const searchQ = (document.getElementById('hist-search')?.value || '').trim().toLowerCase();
       const filtered = transactions
         .filter(t => t.date >= startStr && t.date <= endStr)
-        .filter(t => histType === 'all' || t.type === histType);
+        .filter(t => histType === 'all' || t.type === histType)
+        .filter(t => !searchQ ||
+          (t.category || '').toLowerCase().includes(searchQ) ||
+          (t.comment  || '').toLowerCase().includes(searchQ) ||
+          String(t.amount).includes(searchQ));
 
       if (filtered.length === 0) {
         document.getElementById('history-content').innerHTML =
-          '<p style="font-size:0.88rem;color:var(--text-gray);padding:20px 0 8px">Нет транзакций за период</p>';
+          `<p style="font-size:0.88rem;color:var(--text-gray);padding:20px 0 8px">${searchQ ? 'Ничего не найдено' : 'Нет транзакций за период'}</p>`;
         return;
       }
 
@@ -3005,6 +3123,12 @@
     buildCategorySelect();
     buildLimitCategorySelect();
     applyTheme(localStorage.getItem('budget_theme') === 'light');
+
+    // Глобальный listener для закрытия кастомных селектов (один на всё приложение)
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.csel-list.open').forEach(el => el.classList.remove('open'));
+      document.querySelectorAll('.csel-trigger.open').forEach(el => el.classList.remove('open'));
+    });
 
     // Scan: upload zone events
     document.getElementById('scan-upload-zone').addEventListener('click', function() {
