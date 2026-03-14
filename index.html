@@ -22,9 +22,11 @@
       --card-border: rgba(255,255,255,0.06);
       --primary: #6366f1;
       --primary-hover: #4f52d9;
+      --primary-rgb: 99, 102, 241;
       --text-dark: #f1f5f9;
       --text-gray: #6b7280;
       --green: #10b981;
+      --green-rgb: 16, 185, 129;
       --red: #ef4444;
       --amber: #f59e0b;
       --radius: 16px;
@@ -541,20 +543,20 @@
       display: flex !important;
       flex-direction: column;
       gap: 8px;
-      background: rgba(99,102,241,0.07) !important;
-      border-color: rgba(99,102,241,0.3) !important;
+      background: rgba(var(--primary-rgb),0.07);
+      border-color: rgba(var(--primary-rgb),0.3);
     }
-    body.light .tx-item.editing { background: #f5f3ff !important; border-color: #c7d2fe !important; }
+    body.light .tx-item.editing { background: #f5f3ff; border-color: #c7d2fe; }
     .edit-row { display: flex; gap: 8px; }
     .edit-date   { flex: 0 0 148px; font-size: 0.85rem; }
     .edit-amount { flex: 1; text-align: right; font-size: 0.85rem; }
     .edit-cat    { font-size: 0.9rem; }
     .edit-row-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px; }
     .edit-save {
-      background: rgba(99,102,241,0.15); color: rgb(99,102,241);
+      background: rgba(var(--primary-rgb),0.15); color: var(--primary);
       font-weight: 600; padding: 6px 16px; border-radius: 7px; font-size: 0.88rem;
     }
-    .edit-save:hover { background: rgba(99,102,241,0.28); color: rgb(79,70,229); }
+    .edit-save:hover { background: rgba(var(--primary-rgb),0.28); color: var(--primary-hover); }
     .edit-cancel { padding: 6px 16px; border-radius: 7px; font-size: 0.88rem; }
     body.light .edit-save { background: #e0e7ff; color: #4f46e5; }
 
@@ -2138,6 +2140,22 @@
 
     // ─── График по дням ──────────────────────────────────────────────────────
 
+    const makeGradientFn = (r, g, b) => {
+      let cached = null, cTop, cBottom;
+      return (context) => {
+        const { ctx, chartArea } = context.chart;
+        if (!chartArea) return `rgba(${r},${g},${b},0.15)`;
+        if (cached && cTop === chartArea.top && cBottom === chartArea.bottom) return cached;
+        cached = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        cached.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
+        cached.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        cTop = chartArea.top; cBottom = chartArea.bottom;
+        return cached;
+      };
+    };
+    const gradientGreen   = makeGradientFn(16, 185, 129);
+    const gradientPrimary = makeGradientFn(99, 102, 241);
+
     let dailyChart = null;
     let reportPeriod = 'month';   // 'week' | 'month' | 'year'
 
@@ -2175,21 +2193,6 @@
       balEl.textContent = (balance >= 0 ? '+' : '−') + fmt(Math.abs(balance));
       balEl.style.color = balance >= 0 ? 'var(--green)' : 'var(--red)';
 
-      // Градиент с кэшем — пересоздаётся только при изменении размеров canvas
-      const makeGradientFn = (r, g, b) => {
-        let cached = null, cTop, cBottom;
-        return (context) => {
-          const { ctx, chartArea } = context.chart;
-          if (!chartArea) return `rgba(${r},${g},${b},0.15)`;
-          if (cached && cTop === chartArea.top && cBottom === chartArea.bottom) return cached;
-          cached = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          cached.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
-          cached.addColorStop(1, `rgba(${r},${g},${b},0)`);
-          cTop = chartArea.top; cBottom = chartArea.bottom;
-          return cached;
-        };
-      };
-
       const canvas = document.getElementById('daily-chart');
       const monthLabel = now.toLocaleString('ru-RU', { month: 'long' });
 
@@ -2212,7 +2215,7 @@
           label: 'Доходы',
           data: incomeTotals,
           borderColor: 'rgba(16,185,129,0.9)',
-          backgroundColor: makeGradientFn(16, 185, 129),
+          backgroundColor: gradientGreen,
           borderWidth: 2, tension: 0.4, fill: true,
           pointRadius: 0, pointHoverRadius: 5,
           pointHoverBackgroundColor: 'rgba(16,185,129,1)',
@@ -2222,7 +2225,7 @@
           label: 'Расходы',
           data: expenseTotals,
           borderColor: 'rgba(99,102,241,0.9)',
-          backgroundColor: makeGradientFn(99, 102, 241),
+          backgroundColor: gradientPrimary,
           borderWidth: 2, tension: 0.4, fill: true,
           pointRadius: 0, pointHoverRadius: 5,
           pointHoverBackgroundColor: 'rgba(99,102,241,1)',
@@ -2295,8 +2298,20 @@
       document.body.classList.toggle('light', light);
       document.getElementById('theme-toggle').textContent = light ? '🌙' : '☀️';
       document.querySelector('meta[name="color-scheme"]').content = light ? 'light dark' : 'dark light';
-      if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
-      renderDailyChart();
+      if (dailyChart) {
+        const isDark = !light;
+        const o = dailyChart.options;
+        o.plugins.tooltip.backgroundColor = isDark ? '#1e2130' : '#fff';
+        o.plugins.tooltip.titleColor       = isDark ? '#9ca3af' : '#6b7280';
+        o.plugins.tooltip.bodyColor        = isDark ? '#f1f5f9' : '#1a202c';
+        o.plugins.tooltip.borderColor      = isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0';
+        o.scales.x.ticks.color             = isDark ? '#6b7280' : '#718096';
+        o.scales.y.ticks.color             = isDark ? '#6b7280' : '#718096';
+        o.scales.y.grid.color              = isDark ? 'rgba(255,255,255,0.06)' : '#edf2f7';
+        dailyChart.update('none');
+      } else {
+        renderDailyChart();
+      }
     }
 
     function toggleTheme() {
@@ -2580,9 +2595,10 @@
         const ta = document.createElement('textarea');
         ta.value = lines; ta.style.position = 'fixed'; ta.style.opacity = '0';
         document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); } catch(e) {}
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch(e) {}
         document.body.removeChild(ta);
-        btn.textContent = '✅';
+        btn.textContent = ok ? '✅' : '❌';
         setTimeout(() => { btn.textContent = '📋'; }, 1500);
       }
     }
@@ -2777,8 +2793,7 @@
       }
     }
 
-    const DEFAULT_API_KEY = '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';
-    function getApiKey() { return loadFromStorage(API_KEY_STORAGE, '') || DEFAULT_API_KEY; }
+    function getApiKey() { return loadFromStorage(API_KEY_STORAGE, ''); }
 
     function initApiKeyUI() {
       const key = getApiKey();
@@ -2919,14 +2934,16 @@
       });
 
       pendingScanTxs.forEach(tx => {
-        transactions.unshift({
-          id: Date.now() + Math.random(),
+        const newTx = {
+          id: Date.now() + Math.floor(Math.random() * 10000),
           amount: tx.amount,
           type: tx.type,
           category: tx.category,
           date: tx.date,
           comment: tx.description
-        });
+        };
+        transactions.unshift(newTx);
+        firestoreSaveTx(newTx);
       });
 
       saveData(transactions);
