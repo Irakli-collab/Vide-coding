@@ -948,19 +948,35 @@
       .report-header button,
       .report-toggle,
       #copy-report-btn           { display: none !important; }
-      body {
+      /* Светлая тема — белый фон, тёмный текст */
+      body.light {
         background: #fff !important;
         padding: 0 !important;
       }
-      .card {
+      body.light .card {
         background: #fff !important;
         border: none !important;
         box-shadow: none !important;
         padding: 0 !important;
       }
-      .report-stat {
+      body.light .report-stat {
         background: #f8fafc !important;
         border-color: #e2e8f0 !important;
+      }
+      /* Тёмная тема — тёмный фон, светлый текст */
+      body:not(.light) {
+        background: #0d0f1a !important;
+        padding: 0 !important;
+      }
+      body:not(.light) .card {
+        background: #111827 !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+      body:not(.light) .report-stat {
+        background: #1e293b !important;
+        border-color: #334155 !important;
       }
       .report-donut-wrap { width: 160px; height: 160px; }
     }
