@@ -1452,6 +1452,48 @@
     </div>
   </div>
 
+  <!-- Modal: редактирование транзакции -->
+  <div class="modal-overlay" id="edit-tx-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Редактировать транзакцию</h2>
+        <button class="modal-close" onclick="closeEditTxModal()">&times;</button>
+      </div>
+      <form id="edit-tx-form" onsubmit="saveEditTxModal(event)">
+        <div class="form-group">
+          <label>Тип</label>
+          <div class="type-toggle">
+            <input type="radio" name="edit-type" id="edit-type-income" value="income">
+            <label for="edit-type-income">Доход</label>
+            <input type="radio" name="edit-type" id="edit-type-expense" value="expense">
+            <label for="edit-type-expense">Расход</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-modal-amount">Сумма (₽)</label>
+          <input type="number" id="edit-modal-amount" min="0.01" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-modal-category">Категория</label>
+          <select id="edit-modal-category"></select>
+        </div>
+        <div class="form-group">
+          <label for="edit-modal-date">Дата</label>
+          <input type="date" id="edit-modal-date" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-modal-comment">Комментарий</label>
+          <input type="text" id="edit-modal-comment" placeholder="Необязательно">
+        </div>
+        <input type="hidden" id="edit-modal-id">
+        <div style="display:flex;gap:12px;margin-top:4px">
+          <button type="button" class="btn-secondary" onclick="closeEditTxModal()">Отмена</button>
+          <button type="submit" class="btn-primary" style="flex:1">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="view-main">
 
   <!-- График по дням -->
@@ -2106,64 +2148,62 @@
 
     // ─── Редактирование транзакции (inline) ──────────────────────────────────
 
-    function startEditTx(id) {
-      const tx = transactions.find(t => t.id === id);
-      if (!tx) return;
-
-      const item = document.getElementById('tx-item-' + id);
-      if (!item) return;
-      item.classList.add('editing');
-
-      item.innerHTML = `
-        <div class="edit-row">
-          <input class="edit-input edit-date" id="edit-date-${id}" type="date" value="${tx.date}">
-          <input class="edit-input edit-amount" id="edit-amount-${id}" type="number" min="0" step="0.01" value="${tx.amount}" placeholder="Сумма">
-        </div>
-        <input class="edit-input edit-cat" id="edit-cat-${id}" value="${escHtml(tx.category)}" placeholder="Категория">
-        <input class="edit-input" id="edit-comment-${id}" value="${escHtml(tx.comment||'')}" placeholder="Комментарий">
-        <div class="edit-row-actions">
-          <button class="btn-icon edit-cancel" onclick="render()" title="Отмена">✕ Отмена</button>
-          <button class="btn-icon edit-save" onclick="saveEditTx(${id})" title="Сохранить">✓ Сохранить</button>
-        </div>`;
-
-      const catInp = document.getElementById('edit-cat-' + id);
-      if (catInp) { catInp.focus(); catInp.select(); }
-
-      ['edit-date-', 'edit-cat-', 'edit-amount-', 'edit-comment-'].forEach(prefix => {
-        const inp = document.getElementById(prefix + id);
-        if (inp) inp.addEventListener('keydown', e => {
-          if (e.key === 'Enter')  saveEditTx(id);
-          if (e.key === 'Escape') render();
-        });
-      });
-
-      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    function buildEditCategorySelect(type, currentCat) {
+      const sel  = document.getElementById('edit-modal-category');
+      const cats = [...CATEGORIES[type], ...customCats[type]];
+      const inList = cats.includes(currentCat);
+      sel.innerHTML = cats.map(c =>
+        `<option value="${escHtml(c)}"${c === currentCat ? ' selected' : ''}>${escHtml(catLabel(c))}</option>`
+      ).join('') + (!inList && currentCat
+        ? `<option value="${escHtml(currentCat)}" selected>${escHtml(catLabel(currentCat))}</option>`
+        : '');
     }
 
-    function saveEditTx(id) {
-      const dateInp   = document.getElementById('edit-date-'   + id);
-      const catInp    = document.getElementById('edit-cat-'    + id);
-      const amountInp = document.getElementById('edit-amount-' + id);
-      if (!dateInp || !catInp || !amountInp) return render();
+    function openEditTxModal(id) {
+      const tx = transactions.find(t => t.id === id);
+      if (!tx) return;
+      document.getElementById('edit-modal-id').value      = id;
+      document.getElementById('edit-modal-amount').value  = tx.amount;
+      document.getElementById('edit-modal-date').value    = tx.date;
+      document.getElementById('edit-modal-comment').value = tx.comment || '';
+      const radio = document.querySelector(`input[name="edit-type"][value="${tx.type}"]`);
+      if (radio) radio.checked = true;
+      buildEditCategorySelect(tx.type, tx.category);
+      document.querySelectorAll('input[name="edit-type"]').forEach(r => {
+        r.onchange = () => buildEditCategorySelect(r.value, document.getElementById('edit-modal-category').value);
+      });
+      document.getElementById('edit-tx-modal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
 
-      const newDate   = dateInp.value;
-      const newCat    = catInp.value.trim();
-      const newAmount = parseFloat(amountInp.value);
+    function closeEditTxModal() {
+      document.getElementById('edit-tx-modal').classList.remove('open');
+      document.body.style.overflow = '';
+    }
 
-      if (newCat && newDate && !isNaN(newAmount) && newAmount > 0) {
-        const tx = transactions.find(t => t.id === id);
-        if (tx) {
-          tx.date     = newDate;
-          tx.category = newCat;
-          tx.amount   = newAmount;
-          tx.comment  = (document.getElementById('edit-comment-' + id)?.value ?? '').trim();
-          firestoreSaveTx(tx);
-          saveData(transactions);
-        }
-      } else {
+    function saveEditTxModal(e) {
+      e.preventDefault();
+      const id      = parseInt(document.getElementById('edit-modal-id').value);
+      const amount  = parseFloat(document.getElementById('edit-modal-amount').value);
+      const type    = document.querySelector('input[name="edit-type"]:checked').value;
+      const cat     = document.getElementById('edit-modal-category').value;
+      const date    = document.getElementById('edit-modal-date').value;
+      const comment = document.getElementById('edit-modal-comment').value.trim();
+      if (!amount || amount <= 0 || !cat || !date) {
         showToast('Заполните все поля корректно', 'warn');
         return;
       }
+      const tx = transactions.find(t => t.id === id);
+      if (tx) {
+        tx.amount   = amount;
+        tx.type     = type;
+        tx.category = cat;
+        tx.date     = date;
+        tx.comment  = comment;
+        saveData(transactions);
+        firestoreSaveTx(tx);
+      }
+      closeEditTxModal();
       render();
     }
 
@@ -2212,7 +2252,7 @@
             ${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}
           </span>
           <div class="tx-actions">
-            <button class="btn-icon" onclick="startEditTx(${t.id})" title="Редактировать">✎</button>
+            <button class="btn-icon" onclick="openEditTxModal(${t.id})" title="Редактировать">✎</button>
             <button class="btn-icon delete" onclick="deleteTransaction(${t.id})" title="Удалить">✕</button>
           </div>
         </li>
@@ -3260,6 +3300,9 @@
     // Закрытие модалки по клику на overlay
     document.getElementById('tx-modal').addEventListener('click', function(e) {
       if (e.target === this) closeTxModal();
+    });
+    document.getElementById('edit-tx-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeEditTxModal();
     });
 
     // Дата по умолчанию — сегодня
