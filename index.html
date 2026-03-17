@@ -2419,30 +2419,37 @@
       '#f97316','#14b8a6'
     ];
     let reportPeriod = 'month';   // 'week' | 'month' | 'year'
-    let chartMonthOffset = 0;     // 0 = текущий, -1 = прошлый и т.д.
+    const _cm0 = new Date();
+    let chartMonth = `${_cm0.getFullYear()}-${String(_cm0.getMonth()+1).padStart(2,'0')}`;
 
     function shiftChartMonth(delta) {
-      const newOffset = chartMonthOffset + delta;
-      if (newOffset > 0) return;
-      chartMonthOffset = newOffset;
+      const [y, m] = chartMonth.split('-').map(Number);
+      const d = new Date(y, m - 1 + delta, 1);
+      const t0 = new Date();
+      const todayKey = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}`;
+      const newKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if (newKey > todayKey) return;
+      chartMonth = newKey;
       if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
       renderDailyChart();
     }
 
     function renderDailyChart() {
       const isDark = !document.body.classList.contains('light');
-      const today = new Date();
-      const now  = new Date(today.getFullYear(), today.getMonth() + chartMonthOffset, 1);
-      const year = now.getFullYear();
-      const mon  = now.getMonth();
-      const cm   = `${year}-${String(mon + 1).padStart(2, '0')}`;
-      const days = new Date(year, mon + 1, 0).getDate();
+      const cm     = chartMonth;
+      const [year, monNum] = chartMonth.split('-').map(Number);
+      const mon  = monNum - 1;
+      const days = new Date(year, monNum, 0).getDate();
+      const now  = new Date(year, mon, 1);
 
+      const rawLabel = now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
       document.getElementById('chart-month-label').textContent =
-        now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+        rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+      const t0 = new Date();
+      const todayKey = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}`;
       const nextBtn = document.getElementById('chart-next-btn');
-      if (nextBtn) nextBtn.disabled = chartMonthOffset >= 0;
-      if (nextBtn) nextBtn.style.opacity = chartMonthOffset >= 0 ? '0.3' : '';
+      if (nextBtn) nextBtn.disabled = chartMonth >= todayKey;
+      if (nextBtn) nextBtn.style.opacity = chartMonth >= todayKey ? '0.3' : '';
 
       const incomeTotals  = new Array(days).fill(0);
       const expenseTotals = new Array(days).fill(0);
@@ -2468,7 +2475,7 @@
       balEl.style.color = balance >= 0 ? 'var(--green)' : 'var(--red)';
 
       const canvas = document.getElementById('daily-chart');
-      const monthLabel = now.toLocaleString('ru-RU', { month: 'long' });
+      const monthLabel = now.toLocaleString('ru-RU', { month: 'long' }); // used in tooltip
 
       // Уничтожить зависший экземпляр если canvas отсоединён от DOM
       if (dailyChart && !canvas.isConnected) {
