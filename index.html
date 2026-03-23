@@ -1221,9 +1221,15 @@
       body            { padding: 16px 12px 72px; }
       .card           { padding: 20px 16px; }
       .main-grid      { grid-template-columns: 1fr; }
-      .balance-row    { gap: 8px; flex-wrap: wrap; }
-      .balance-pill   { padding: 8px 14px; }
-      .balance-amount { font-size: 2.2rem; }
+      .balance-card   { padding: 16px; text-align: left; display: flex; flex-wrap: wrap; align-items: center; }
+      .balance-top-row { width: 100%; margin-bottom: 8px; }
+      .balance-label  { width: 100%; margin-bottom: 4px; }
+      .balance-amount { flex: 1; font-size: 2rem; margin-bottom: 0; }
+      .balance-row    { flex: 0 0 auto; flex-direction: column; gap: 6px; flex-wrap: nowrap; justify-content: center; }
+      .balance-pill   { padding: 6px 10px; gap: 6px; }
+      .user-avatar    { width: 24px; height: 24px; }
+      .user-name      { font-size: 0.7rem; }
+      .sign-out-btn   { font-size: 0.7rem; }
       .chart-header, .report-header { flex-direction: column; align-items: flex-start; gap: 10px; }
       .chart-wrap     { height: 180px; }
       .limit-form     { grid-template-columns: 1fr; }
