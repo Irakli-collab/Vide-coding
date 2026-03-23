@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <title>FinVibe</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='48' height='48' viewBox='0 0 120 120' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='120' height='120' rx='28' fill='url(%23gradA)'/%3E%3Cdefs%3E%3ClinearGradient id='gradA' x1='0' y1='0' x2='120' y2='120'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='100%25' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='24' y='72' width='14' height='28' rx='4' fill='white' opacity='0.4'/%3E%3Crect x='44' y='54' width='14' height='46' rx='4' fill='white' opacity='0.6'/%3E%3Crect x='64' y='38' width='14' height='62' rx='4' fill='white' opacity='0.8'/%3E%3Crect x='84' y='22' width='14' height='78' rx='4' fill='white'/%3E%3Cpolyline points='31,72 51,54 71,38 91,22' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' opacity='0.5' fill='none'/%3E%3C/svg%3E">
+  <link rel="manifest" href="/manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,6 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     /* ─── Базовые переменные — тёмная тема дефолт ─── */
     :root {
@@ -21,9 +23,11 @@
       --card-border: rgba(255,255,255,0.06);
       --primary: #6366f1;
       --primary-hover: #4f52d9;
+      --primary-rgb: 99, 102, 241;
       --text-dark: #f1f5f9;
       --text-gray: #6b7280;
       --green: #10b981;
+      --green-rgb: 16, 185, 129;
       --red: #ef4444;
       --amber: #f59e0b;
       --radius: 16px;
@@ -212,6 +216,13 @@
       background: rgba(99,102,241,0.06);
     }
 
+    input[type="date"] {
+      padding: 10px 12px;
+      line-height: 1.4;
+      min-height: unset;
+      height: auto;
+    }
+
     body.light input[type="number"],
     body.light input[type="date"],
     body.light input[type="text"],
@@ -246,10 +257,24 @@
     .csel-list {
       display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
       background: var(--card); border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px; max-height: 220px; overflow-y: auto; z-index: 9999;
+      border-radius: 8px; max-height: 260px; overflow-y: auto; z-index: 9999;
       box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
     .csel-list.open { display: block; }
+    .csel-search {
+      width: 100%; padding: 8px 12px; box-sizing: border-box;
+      border: none; border-bottom: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px 8px 0 0;
+      font-family: var(--font); font-size: 0.9rem;
+      color: var(--text-dark); background: rgba(255,255,255,0.06);
+      outline: none;
+    }
+    .csel-search::placeholder { color: var(--text-gray); }
+    .csel-search:focus { background: rgba(99,102,241,0.08); }
+    .csel-empty {
+      display: none; padding: 10px 14px;
+      color: var(--text-gray); font-size: 0.9rem; font-style: italic;
+    }
     .csel-opt {
       padding: 10px 14px; cursor: pointer;
       color: var(--text-dark); font-size: 0.95rem; font-family: var(--font);
@@ -257,10 +282,19 @@
     }
     .csel-opt:hover { background: rgba(255,255,255,0.07); }
     .csel-opt.selected { color: var(--primary); }
+    .csel-opt-del {
+      background: none; border: none; cursor: pointer; color: var(--text-gray);
+      font-size: 0.75rem; padding: 2px 5px; border-radius: 3px; line-height: 1;
+      opacity: 0.5; flex-shrink: 0;
+    }
+    .csel-opt-del:hover { opacity: 1; color: var(--red); background: rgba(239,68,68,0.12); }
+    body.light .csel-opt-del:hover { background: #fee2e2; }
     body.light .csel-trigger { background: #f8fafc; border-color: #e2e8f0; }
     body.light .csel-trigger.open { background: #fff; border-color: var(--primary); }
     body.light .csel-list { background: #fff; border-color: #e2e8f0; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
     body.light .csel-opt:hover { background: rgba(0,0,0,0.04); }
+    body.light .csel-search { background: #f0f4f8; border-color: #e2e8f0; }
+    body.light .csel-search:focus { background: #fff; }
 
     /* Кастомная категория в дропдауне — с кнопкой удаления */
     .csel-opt.csel-opt-custom {
@@ -521,19 +555,41 @@
     body.light .btn-icon:hover { background: #e2e8f0; }
     body.light .btn-icon.delete:hover { background: #fee2e2; }
 
-    /* Инлайн-редактирование категории */
+    /* Инлайн-редактирование */
     .edit-input {
-      padding: 2px 6px;
+      padding: 6px 10px;
       border: 1.5px solid var(--primary);
-      border-radius: 5px;
+      border-radius: 7px;
       font-family: var(--font);
-      font-size: 0.88rem;
-      width: 120px;
+      font-size: 0.9rem;
       outline: none;
       background: rgba(255,255,255,0.06);
       color: var(--text-dark);
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 36px;
     }
-    body.light .edit-input { background: #fff; }
+    body.light .edit-input { background: #fff; color: var(--text-dark); }
+    .tx-item.editing {
+      display: flex !important;
+      flex-direction: column;
+      gap: 8px;
+      background: rgba(var(--primary-rgb),0.07);
+      border-color: rgba(var(--primary-rgb),0.3);
+    }
+    body.light .tx-item.editing { background: #f5f3ff; border-color: #c7d2fe; }
+    .edit-row { display: flex; gap: 8px; }
+    .edit-date   { flex: 0 0 148px; font-size: 0.85rem; }
+    .edit-amount { flex: 1; text-align: right; font-size: 0.85rem; }
+    .edit-cat    { font-size: 0.9rem; }
+    .edit-row-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px; }
+    .edit-save {
+      background: rgba(var(--primary-rgb),0.15); color: var(--primary);
+      font-weight: 600; padding: 6px 16px; border-radius: 7px; font-size: 0.88rem;
+    }
+    .edit-save:hover { background: rgba(var(--primary-rgb),0.28); color: var(--primary-hover); }
+    .edit-cancel { padding: 6px 16px; border-radius: 7px; font-size: 0.88rem; }
+    body.light .edit-save { background: #e0e7ff; color: #4f46e5; }
 
     .tx-empty {
       text-align: center;
@@ -669,6 +725,32 @@
     body.light .chart-toggle { border-color: #e2e8f0; }
     body.light .chart-toggle-btn { background: #f8fafc; }
     body.light .chart-toggle-btn:first-child { border-right-color: #e2e8f0; }
+
+    .chart-legend { display: flex; gap: 16px; align-items: center; }
+    .chart-legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.82rem; color: var(--text-gray);
+    }
+    .chart-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .chart-legend-item.income  .chart-legend-dot { background: rgba(16,185,129,0.9); }
+    .chart-legend-item.expense .chart-legend-dot { background: rgba(99,102,241,0.9); }
+
+    .chart-summary {
+      display: flex; align-items: center;
+      margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .chart-sum-item { flex: 1; text-align: center; }
+    .chart-sum-label {
+      display: block; font-size: 0.72rem; color: var(--text-gray);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
+    }
+    .chart-sum-value { display: block; font-size: 1rem; font-weight: 700; }
+    .chart-sum-value.income  { color: var(--green); }
+    .chart-sum-value.expense { color: var(--red); }
+    .chart-sum-sep { width: 1px; height: 36px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+    body.light .chart-summary { border-top-color: #e2e8f0; }
+    body.light .chart-sum-sep { background: #e2e8f0; }
 
     /* ─── Вкладки (внутри карточек) ─── */
     .tabs {
@@ -809,6 +891,124 @@
       letter-spacing: 0.07em;
       color: var(--text-gray);
       margin-bottom: 12px;
+    }
+
+    /* ─── Donut-диаграммы в отчёте ─── */
+    .report-donut-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .report-donut-wrap {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 16px;
+    }
+    .report-donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .report-donut-center-val {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+    .report-donut-center-lbl {
+      font-size: 0.65rem;
+      color: var(--text-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .report-legend {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 4px;
+    }
+    .report-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.83rem;
+    }
+    .report-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .report-legend-name {
+      flex: 1;
+      color: var(--text-dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .report-legend-val {
+      font-weight: 600;
+      color: var(--text-dark);
+      white-space: nowrap;
+    }
+    .report-legend-pct {
+      color: var(--text-gray);
+      font-weight: 400;
+      min-width: 38px;
+      text-align: right;
+    }
+    .report-no-data {
+      font-size: 0.85rem;
+      color: var(--text-gray);
+      text-align: center;
+      padding: 40px 0;
+    }
+
+    /* ─── Печать / PDF ─── */
+    @media print {
+      body > *                   { display: none !important; }
+      #view-main                 { display: block !important; }
+      #view-main > *             { display: none !important; }
+      #view-main > .card:last-child { display: block !important; }
+      .report-header button,
+      .report-toggle,
+      #copy-report-btn           { display: none !important; }
+      /* Светлая тема — белый фон, тёмный текст */
+      body.light {
+        background: #fff !important;
+        padding: 0 !important;
+      }
+      body.light .card {
+        background: #fff !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+      body.light .report-stat {
+        background: #f8fafc !important;
+        border-color: #e2e8f0 !important;
+      }
+      /* Тёмная тема — тёмный фон, светлый текст */
+      body:not(.light) {
+        background: #0d0f1a !important;
+        padding: 0 !important;
+      }
+      body:not(.light) .card {
+        background: #111827 !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+      body:not(.light) .report-stat {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+      }
+      .report-donut-wrap { width: 160px; height: 160px; }
     }
 
     /* ─── Управление категориями ─── */
@@ -1051,15 +1251,23 @@
       body            { padding: 16px 12px 72px; }
       .card           { padding: 20px 16px; }
       .main-grid      { grid-template-columns: 1fr; }
-      .balance-row    { gap: 8px; flex-wrap: wrap; }
-      .balance-pill   { padding: 8px 14px; }
-      .balance-amount { font-size: 2.2rem; }
+      .balance-card   { padding: 16px; text-align: left; display: flex; flex-wrap: wrap; align-items: center; }
+      .balance-top-row { width: 100%; margin-bottom: 8px; }
+      .balance-label  { width: 100%; margin-bottom: 4px; }
+      .balance-amount { flex: 1; font-size: 2rem; margin-bottom: 0; }
+      .balance-row    { flex: 0 0 auto; flex-direction: column; gap: 6px; flex-wrap: nowrap; justify-content: center; }
+      .balance-pill   { padding: 6px 10px; gap: 6px; }
+      .user-avatar    { width: 24px; height: 24px; }
+      .user-name      { font-size: 0.7rem; }
+      .sign-out-btn   { font-size: 0.7rem; }
       .chart-header, .report-header { flex-direction: column; align-items: flex-start; gap: 10px; }
       .chart-wrap     { height: 180px; }
       .limit-form     { grid-template-columns: 1fr; }
       .report-grid    { grid-template-columns: 1fr; }
       .report-summary { flex-direction: column; }
       .tx-item        { grid-template-columns: 56px 1fr auto auto; gap: 8px; padding: 10px; }
+      .edit-date   { flex: 0 0 130px; }
+      .edit-amount { flex: 1; }
       .cat-manage-row { flex-wrap: wrap; }
       .cat-manage-row .btn-primary { width: 100%; }
       .history-header { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -1151,6 +1359,37 @@
       .user-name { max-width: 70px; }
       .auth-card { padding: 36px 24px; }
     }
+
+    /* ─── Toast / Snackbar ─── */
+    #toast-container {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      z-index: 250; pointer-events: none; width: max-content; max-width: calc(100vw - 32px);
+    }
+    @media (max-width: 780px) { #toast-container { bottom: 72px; } }
+    .toast {
+      pointer-events: auto; display: flex; align-items: center; gap: 12px;
+      padding: 12px 18px; border-radius: 10px; background: var(--card);
+      border: 1px solid var(--card-border); box-shadow: var(--shadow);
+      font-size: 0.9rem; font-weight: 500; color: var(--text-dark); white-space: nowrap;
+      animation: toast-in 0.28s ease forwards;
+    }
+    .toast.hiding { animation: toast-out 0.22s ease forwards; }
+    .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .toast.info .toast-dot { background: var(--green); }
+    .toast.warn .toast-dot, .toast.undo .toast-dot { background: var(--amber); }
+    .toast-undo-btn {
+      background: none; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px;
+      color: var(--text-dark); font-size: 0.82rem; font-weight: 700;
+      padding: 4px 10px; cursor: pointer; flex-shrink: 0;
+    }
+    .toast-undo-btn:hover { background: rgba(255,255,255,0.1); }
+    body.light .toast-undo-btn { border-color: rgba(0,0,0,0.14); }
+    @keyframes toast-in  { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes toast-out { from { opacity:1; transform:translateY(0); }   to { opacity:0; transform:translateY(12px); } }
+    .sync-dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; align-self:center; transition:background-color 0.4s ease; }
+    .sync-dot.loading { background-color:#9e9e9e; }
+    .sync-dot.synced  { background-color:#4caf50; }
   </style>
 </head>
 <body>
@@ -1187,6 +1426,7 @@
         <button class="sign-out-btn" onclick="doSignOut()">Выйти</button>
       </div>
       <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Сменить тему">☀️</button>
+      <span id="sync-dot" class="sync-dot loading" title="Статус синхронизации"></span>
     </div>
     <div class="balance-label">Общий баланс</div>
     <div class="balance-amount" id="balance-amount">₽ 0</div>
@@ -1252,19 +1492,81 @@
     </div>
   </div>
 
+  <!-- Modal: редактирование транзакции -->
+  <div class="modal-overlay" id="edit-tx-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Редактировать транзакцию</h2>
+        <button class="modal-close" onclick="closeEditTxModal()">&times;</button>
+      </div>
+      <form id="edit-tx-form" onsubmit="saveEditTxModal(event)">
+        <div class="form-group">
+          <label>Тип</label>
+          <div class="type-toggle">
+            <input type="radio" name="edit-type" id="edit-type-income" value="income">
+            <label for="edit-type-income">Доход</label>
+            <input type="radio" name="edit-type" id="edit-type-expense" value="expense">
+            <label for="edit-type-expense">Расход</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-modal-amount">Сумма (₽)</label>
+          <input type="number" id="edit-modal-amount" min="0.01" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-modal-category">Категория</label>
+          <select id="edit-modal-category"></select>
+        </div>
+        <div class="form-group">
+          <label for="edit-modal-date">Дата</label>
+          <input type="date" id="edit-modal-date" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-modal-comment">Комментарий</label>
+          <input type="text" id="edit-modal-comment" placeholder="Необязательно">
+        </div>
+        <input type="hidden" id="edit-modal-id">
+        <div style="display:flex;gap:12px;margin-top:4px">
+          <button type="button" class="btn-secondary" onclick="closeEditTxModal()">Отмена</button>
+          <button type="submit" class="btn-primary" style="flex:1">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="view-main">
 
   <!-- График по дням -->
   <div class="card chart-card">
     <div class="chart-header">
-      <h2><span id="chart-type-label">Расходы</span> по дням — <span id="chart-month-label"></span></h2>
-      <div class="chart-toggle">
-        <button class="chart-toggle-btn active" id="chart-btn-expense" onclick="setChartMode('expense')">Расходы</button>
-        <button class="chart-toggle-btn" id="chart-btn-income" onclick="setChartMode('income')">Доходы</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn-icon" id="chart-prev-btn" onclick="shiftChartMonth(-1)" title="Предыдущий месяц" style="font-size:1rem;padding:4px 8px">‹</button>
+        <h2 style="margin:0">По дням — <span id="chart-month-label"></span></h2>
+        <button class="btn-icon" id="chart-next-btn" onclick="shiftChartMonth(1)" title="Следующий месяц" style="font-size:1rem;padding:4px 8px">›</button>
+      </div>
+      <div class="chart-legend">
+        <span class="chart-legend-item income"><span class="chart-legend-dot"></span>Доходы</span>
+        <span class="chart-legend-item expense"><span class="chart-legend-dot"></span>Расходы</span>
       </div>
     </div>
     <div class="chart-wrap">
       <canvas id="daily-chart"></canvas>
+    </div>
+    <div class="chart-summary">
+      <div class="chart-sum-item">
+        <span class="chart-sum-label">↑ Доходы</span>
+        <span class="chart-sum-value income" id="chart-sum-income">—</span>
+      </div>
+      <div class="chart-sum-sep"></div>
+      <div class="chart-sum-item">
+        <span class="chart-sum-label">↓ Расходы</span>
+        <span class="chart-sum-value expense" id="chart-sum-expense">—</span>
+      </div>
+      <div class="chart-sum-sep"></div>
+      <div class="chart-sum-item">
+        <span class="chart-sum-label">= Остаток</span>
+        <span class="chart-sum-value" id="chart-sum-balance">—</span>
+      </div>
     </div>
   </div>
 
@@ -1389,7 +1691,8 @@
           <button class="report-btn active" id="report-btn-month" onclick="setReportPeriod('month')">Месяц</button>
           <button class="report-btn" id="report-btn-year"  onclick="setReportPeriod('year')">Год</button>
         </div>
-        <button class="btn-icon" id="copy-report-btn" onclick="copyReport()" title="Копировать отчёт" style="font-size:1.1rem;padding:6px 8px">📋</button>
+        <button class="btn-icon" onclick="exportPDF()" title="Скачать PDF" style="font-size:0.82rem;padding:6px 10px;font-weight:600">📄 PDF</button>
+        <button class="btn-icon" onclick="exportCSV()" title="Экспорт в CSV" style="font-size:0.82rem;padding:6px 10px;font-weight:600">⬇ CSV</button>
       </div>
     </div>
     <div id="report-content"></div>
@@ -1399,12 +1702,30 @@
 
   <div id="view-history" style="display:none">
     <div class="card" style="margin-bottom:24px">
-      <div class="history-header">
+      <div class="history-header" style="margin-bottom:10px">
         <h2>История</h2>
+      </div>
+      <div style="position:relative;margin-bottom:12px">
+        <input type="text" id="hist-search" placeholder="🔍 Поиск по категории, комментарию, сумме…"
+          oninput="onHistSearchInput()"
+          style="width:100%;box-sizing:border-box;padding:9px 34px 9px 12px;
+                 border-radius:9px;border:1px solid var(--card-border);background:var(--card);
+                 color:var(--text-dark);font-family:var(--font);font-size:0.88rem;outline:none">
+        <button id="hist-search-clear" onclick="clearHistSearch()"
+          style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                 background:none;border:none;color:var(--text-gray);cursor:pointer;
+                 font-size:1rem;line-height:1;padding:2px 4px">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
         <div class="chart-toggle">
           <button class="chart-toggle-btn active" id="hist-btn-all"   onclick="setHistPeriod('all')">Все</button>
           <button class="chart-toggle-btn"        id="hist-btn-month" onclick="setHistPeriod('month')">Месяц</button>
           <button class="chart-toggle-btn"        id="hist-btn-week"  onclick="setHistPeriod('week')">Неделя</button>
+        </div>
+        <div class="chart-toggle">
+          <button class="chart-toggle-btn active" id="hist-type-all"     onclick="setHistType('all')">Все</button>
+          <button class="chart-toggle-btn"        id="hist-type-income"  onclick="setHistType('income')">Доходы</button>
+          <button class="chart-toggle-btn"        id="hist-type-expense" onclick="setHistType('expense')">Расходы</button>
         </div>
       </div>
       <div id="history-content"></div>
@@ -1468,7 +1789,37 @@
     </div>
   </div>
 
+  <div id="toast-container"></div>
+
   <script>
+    // ─── Toast system ─────────────────────────────────────────────────────────
+    function _dismissToast(el) {
+      el.classList.add('hiding');
+      el.addEventListener('animationend', () => el.parentNode && el.parentNode.removeChild(el), { once: true });
+    }
+    function showToast(msg, type = 'info') {
+      const c = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'toast ' + type;
+      el.innerHTML = `<span class="toast-dot"></span><span>${msg}</span>`;
+      c.appendChild(el);
+      el._t = setTimeout(() => _dismissToast(el), 3000);
+    }
+    function showUndoToast(msg, onUndo) {
+      const c = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'toast undo'; let undone = false;
+      el.innerHTML = `<span class="toast-dot"></span><span>${msg}</span>
+        <button class="toast-undo-btn" type="button">Отменить</button>`;
+      el.querySelector('.toast-undo-btn').addEventListener('click', () => {
+        if (undone) return; undone = true;
+        clearTimeout(el._t); _dismissToast(el); onUndo();
+      });
+      c.appendChild(el);
+      el._t = setTimeout(() => { if (!undone) _dismissToast(el); }, 4200);
+      return () => undone;
+    }
+
     // ─── Firebase ─────────────────────────────────────────────────────────────
 
     firebase.initializeApp({
@@ -1488,7 +1839,16 @@
         .catch(function(e) { console.error('Sign-in error:', e); });
     }
 
+    function setSyncStatus(status) {
+      var dot = document.getElementById('sync-dot');
+      if (dot) dot.className = 'sync-dot ' + status;
+    }
+
     function doSignOut() {
+      if (unsubscribeTransactions) {
+        unsubscribeTransactions();
+        unsubscribeTransactions = null;
+      }
       auth.signOut().then(function() { window.location.reload(); });
     }
 
@@ -1500,6 +1860,11 @@
       if (av && user.photoURL) av.src = user.photoURL;
       var nm = document.getElementById('user-name');
       if (nm) nm.textContent = user.displayName || user.email || '';
+      // В Telegram кнопка "Выйти" не нужна
+      var signOutBtn = document.querySelector('.sign-out-btn');
+      if (signOutBtn && window.Telegram?.WebApp?.initDataUnsafe?.user) {
+        signOutBtn.style.display = 'none';
+      }
     }
 
     function showAuthScreen(loading) {
@@ -1538,19 +1903,14 @@
     }
 
     async function loadUserData() {
+      setSyncStatus('loading');
       try {
         var results = await Promise.all([
-          txCol().orderBy('id', 'desc').get(),
           limCol().get(),
           setCol().doc('categories').get()
         ]);
-        var txSnap  = results[0];
-        var limSnap = results[1];
-        var catDoc  = results[2];
-        if (!txSnap.empty) {
-          transactions = txSnap.docs.map(function(d) { return d.data(); });
-          saveToStorage(STORAGE_KEY, transactions);
-        }
+        var limSnap = results[0];
+        var catDoc  = results[1];
         if (!limSnap.empty) {
           limits = {};
           limSnap.docs.forEach(function(d) { limits[d.id] = d.data().amount; });
@@ -1564,7 +1924,22 @@
         console.warn('Firestore load failed, using localStorage fallback:', e);
       }
       refreshCategoryUI();
-      render();
+
+      if (unsubscribeTransactions) {
+        unsubscribeTransactions();
+      }
+      unsubscribeTransactions = txCol().orderBy('id', 'desc').onSnapshot(
+        function(snapshot) {
+          transactions = snapshot.docs.map(function(d) { return d.data(); });
+          saveToStorage(STORAGE_KEY, transactions);
+          setSyncStatus('synced');
+          render();
+        },
+        function(error) {
+          console.warn('Transactions snapshot error:', error);
+          setSyncStatus('loading');
+        }
+      );
     }
 
     // ─── Данные ───────────────────────────────────────────────────────────────
@@ -1596,6 +1971,7 @@
     }
 
     let transactions = loadFromStorage(STORAGE_KEY, []);
+    let unsubscribeTransactions = null;
 
     function saveData(t) { saveToStorage(STORAGE_KEY, t); }
 
@@ -1661,8 +2037,37 @@
       const list = document.createElement('div');
       list.className = 'csel-list';
 
+      const searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.className = 'csel-search';
+      searchInput.placeholder = 'Поиск...';
+      searchInput.addEventListener('mousedown', e => e.stopPropagation());
+      searchInput.addEventListener('click', e => e.stopPropagation());
+      list.appendChild(searchInput);
+
+      const emptyMsg = document.createElement('div');
+      emptyMsg.className = 'csel-empty';
+      emptyMsg.textContent = 'Категория не найдена';
+      list.appendChild(emptyMsg);
+
+      const filterOpts = (q) => {
+        const lower = q.toLowerCase();
+        let anyVisible = false;
+        list.querySelectorAll('.csel-opt').forEach(item => {
+          const match = (item.dataset.label || '').toLowerCase().includes(lower);
+          item.style.display = match ? '' : 'none';
+          if (match) anyVisible = true;
+        });
+        emptyMsg.style.display = anyVisible ? 'none' : 'block';
+      };
+
+      searchInput.addEventListener('input', () => filterOpts(searchInput.value));
+
       const closeList = () => {
-        list.classList.remove('open'); trigger.classList.remove('open');
+        list.classList.remove('open');
+        trigger.classList.remove('open');
+        searchInput.value = '';
+        filterOpts('');
         const addRow = list.querySelector('.csel-add-row');
         if (addRow) addRow.classList.remove('visible');
       };
@@ -1673,6 +2078,7 @@
         const isAddNew = opt.value === '__custom__';
         item.className = 'csel-opt' + (i === nativeSel.selectedIndex ? ' selected' : '') + (isCustom ? ' csel-opt-custom' : '');
         item.dataset.value = opt.value;
+        item.dataset.label = opt.text;
         item.addEventListener('mousedown', e => { e.preventDefault(); });
 
         if (isCustom) {
@@ -1764,10 +2170,12 @@
           l.classList.remove('open');
           l.previousElementSibling && l.previousElementSibling.classList.remove('open');
         });
-        if (!wasOpen) { list.classList.add('open'); trigger.classList.add('open'); }
+        if (!wasOpen) {
+          list.classList.add('open');
+          trigger.classList.add('open');
+          setTimeout(() => searchInput.focus(), 50);
+        }
       });
-
-      document.addEventListener('click', closeList);
 
       wrap.appendChild(trigger);
       wrap.appendChild(list);
@@ -1819,50 +2227,88 @@
       firestoreSaveTx(newTx);
       render();
       closeTxModal();
+      showToast(`${type==='income'?'↑':'↓'} ${fmt(amount)} — ${catLabel(category)}`);
+      if (type === 'expense' && limits[category]) {
+        const spent = transactions
+          .filter(t => t.type==='expense' && t.category===category && monthKey(t.date)===currentMonth())
+          .reduce((s,t) => s+t.amount, 0);
+        if (spent >= limits[category])
+          setTimeout(() => showToast(`⚠️ Лимит по «${catLabel(category)}» превышен!`, 'warn'), 400);
+      }
     });
 
     // ─── Удаление ────────────────────────────────────────────────────────────
 
     function deleteTransaction(id) {
-      firestoreDeleteTx(id);
-      transactions = transactions.filter(t => t.id !== id);
-      saveData(transactions);
-      render();
-    }
-
-    // ─── Редактирование категории (inline) ───────────────────────────────────
-
-    function startEditCategory(id) {
       const tx = transactions.find(t => t.id === id);
       if (!tx) return;
-
-      const span = document.getElementById('cat-text-' + id);
-      const orig = tx.category;
-
-      span.innerHTML = `
-        <input class="edit-input" id="edit-input-${id}" value="${orig}" />
-        <button class="btn-icon" onclick="saveEditCategory(${id})" title="Сохранить">✓</button>
-        <button class="btn-icon" onclick="render()" title="Отмена">✕</button>
-      `;
-
-      const inp = document.getElementById('edit-input-' + id);
-      inp.focus();
-      inp.select();
-      inp.addEventListener('keydown', e => {
-        if (e.key === 'Enter') saveEditCategory(id);
-        if (e.key === 'Escape') render();
+      transactions = transactions.filter(t => t.id !== id);
+      saveData(transactions); renderTransactions();
+      let undone = false;
+      showUndoToast(`Удалено: ${catLabel(tx.category)} ${fmt(tx.amount)}`, () => {
+        undone = true; transactions.unshift(tx); saveData(transactions); firestoreSaveTx(tx); render();
       });
+      setTimeout(() => { if (!undone) firestoreDeleteTx(id); }, 4500);
     }
 
-    function saveEditCategory(id) {
-      const inp = document.getElementById('edit-input-' + id);
-      if (!inp) return;
-      const value = inp.value.trim();
-      if (value) {
-        const tx = transactions.find(t => t.id === id);
-        if (tx) { tx.category = value; firestoreSaveTx(tx); }
-        saveData(transactions);
+    // ─── Редактирование транзакции (inline) ──────────────────────────────────
+
+    function buildEditCategorySelect(type, currentCat) {
+      const sel  = document.getElementById('edit-modal-category');
+      const cats = [...CATEGORIES[type], ...customCats[type]];
+      const inList = cats.includes(currentCat);
+      sel.innerHTML = cats.map(c =>
+        `<option value="${escHtml(c)}"${c === currentCat ? ' selected' : ''}>${escHtml(catLabel(c))}</option>`
+      ).join('') + (!inList && currentCat
+        ? `<option value="${escHtml(currentCat)}" selected>${escHtml(catLabel(currentCat))}</option>`
+        : '');
+    }
+
+    function openEditTxModal(id) {
+      const tx = transactions.find(t => t.id === id);
+      if (!tx) return;
+      document.getElementById('edit-modal-id').value      = id;
+      document.getElementById('edit-modal-amount').value  = tx.amount;
+      document.getElementById('edit-modal-date').value    = tx.date;
+      document.getElementById('edit-modal-comment').value = tx.comment || '';
+      const radio = document.querySelector(`input[name="edit-type"][value="${tx.type}"]`);
+      if (radio) radio.checked = true;
+      buildEditCategorySelect(tx.type, tx.category);
+      document.querySelectorAll('input[name="edit-type"]').forEach(r => {
+        r.onchange = () => buildEditCategorySelect(r.value, document.getElementById('edit-modal-category').value);
+      });
+      document.getElementById('edit-tx-modal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeEditTxModal() {
+      document.getElementById('edit-tx-modal').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function saveEditTxModal(e) {
+      e.preventDefault();
+      const id      = parseInt(document.getElementById('edit-modal-id').value);
+      const amount  = parseFloat(document.getElementById('edit-modal-amount').value);
+      const type    = document.querySelector('input[name="edit-type"]:checked').value;
+      const cat     = document.getElementById('edit-modal-category').value;
+      const date    = document.getElementById('edit-modal-date').value;
+      const comment = document.getElementById('edit-modal-comment').value.trim();
+      if (!amount || amount <= 0 || !cat || !date) {
+        showToast('Заполните все поля корректно', 'warn');
+        return;
       }
+      const tx = transactions.find(t => t.id === id);
+      if (tx) {
+        tx.amount   = amount;
+        tx.type     = type;
+        tx.category = cat;
+        tx.date     = date;
+        tx.comment  = comment;
+        saveData(transactions);
+        firestoreSaveTx(tx);
+      }
+      closeEditTxModal();
       render();
     }
 
@@ -1899,7 +2345,7 @@
       const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
       list.innerHTML = sorted.map((t, i) => `
-        <li class="tx-item animate-in" style="animation-delay:${Math.min(i * 0.04, 0.4)}s; opacity:0">
+        <li class="tx-item animate-in" id="tx-item-${t.id}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s; opacity:0">
           <span class="tx-date">${fmtDate(t.date)}</span>
           <div class="tx-info">
             <span class="tx-category" id="cat-text-${t.id}">
@@ -1911,7 +2357,7 @@
             ${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}
           </span>
           <div class="tx-actions">
-            <button class="btn-icon" onclick="startEditCategory(${t.id})" title="Редактировать категорию">✎</button>
+            <button class="btn-icon" onclick="openEditTxModal(${t.id})" title="Редактировать">✎</button>
             <button class="btn-icon delete" onclick="deleteTransaction(${t.id})" title="Удалить">✕</button>
           </div>
         </li>
@@ -2046,91 +2492,151 @@
 
     // ─── График по дням ──────────────────────────────────────────────────────
 
-    let dailyChart = null;
-    let chartMode    = 'expense'; // 'expense' | 'income'
-    let reportPeriod = 'month';   // 'week' | 'month' | 'year'
+    const makeGradientFn = (r, g, b) => {
+      let cached = null, cTop, cBottom;
+      return (context) => {
+        const { ctx, chartArea } = context.chart;
+        if (!chartArea) return `rgba(${r},${g},${b},0.15)`;
+        if (cached && cTop === chartArea.top && cBottom === chartArea.bottom) return cached;
+        cached = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        cached.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
+        cached.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        cTop = chartArea.top; cBottom = chartArea.bottom;
+        return cached;
+      };
+    };
+    const gradientGreen   = makeGradientFn(16, 185, 129);
+    const gradientPrimary = makeGradientFn(99, 102, 241);
 
-    function setChartMode(mode) {
-      chartMode = mode;
-      document.getElementById('chart-btn-expense').className =
-        'chart-toggle-btn' + (mode === 'expense' ? ' active' : '');
-      document.getElementById('chart-btn-income').className =
-        'chart-toggle-btn' + (mode === 'income' ? ' active income' : '');
+    let dailyChart = null;
+    let reportExpChart = null;
+    let reportIncChart = null;
+
+    const REPORT_PALETTE = [
+      '#6366f1','#10b981','#f59e0b','#ef4444',
+      '#8b5cf6','#06b6d4','#ec4899','#84cc16',
+      '#f97316','#14b8a6'
+    ];
+    let reportPeriod = 'month';   // 'week' | 'month' | 'year'
+    const _cm0 = new Date();
+    let chartMonth = `${_cm0.getFullYear()}-${String(_cm0.getMonth()+1).padStart(2,'0')}`;
+
+    function shiftChartMonth(delta) {
+      const [y, m] = chartMonth.split('-').map(Number);
+      const d = new Date(y, m - 1 + delta, 1);
+      const t0 = new Date();
+      const todayKey = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}`;
+      const newKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if (newKey > todayKey) return;
+      chartMonth = newKey;
+      if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
       renderDailyChart();
     }
 
     function renderDailyChart() {
-      const isExpense = chartMode === 'expense';
       const isDark = !document.body.classList.contains('light');
-      const now  = new Date();
-      const year = now.getFullYear();
-      const mon  = now.getMonth();
-      const cm   = currentMonth();
-      const days = new Date(year, mon + 1, 0).getDate();
+      const cm     = chartMonth;
+      const [year, monNum] = chartMonth.split('-').map(Number);
+      const mon  = monNum - 1;
+      const days = new Date(year, monNum, 0).getDate();
+      const now  = new Date(year, mon, 1);
 
-      document.getElementById('chart-type-label').textContent = isExpense ? 'Расходы' : 'Доходы';
+      const rawLabel = now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
       document.getElementById('chart-month-label').textContent =
-        now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+        rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+      const t0 = new Date();
+      const todayKey = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}`;
+      const nextBtn = document.getElementById('chart-next-btn');
+      if (nextBtn) nextBtn.disabled = chartMonth >= todayKey;
+      if (nextBtn) nextBtn.style.opacity = chartMonth >= todayKey ? '0.3' : '';
 
-      const dayTotals = new Array(days).fill(0);
+      const incomeTotals  = new Array(days).fill(0);
+      const expenseTotals = new Array(days).fill(0);
       transactions
-        .filter(t => t.type === chartMode && monthKey(t.date) === cm)
+        .filter(t => monthKey(t.date) === cm)
         .forEach(t => {
           const day = parseInt(t.date.slice(8, 10), 10) - 1;
-          if (day >= 0 && day < days) dayTotals[day] += t.amount;
+          if (day < 0 || day >= days) return;
+          if (t.type === 'income')  incomeTotals[day]  += t.amount;
+          if (t.type === 'expense') expenseTotals[day] += t.amount;
         });
 
       const labels = Array.from({ length: days }, (_, i) => i + 1);
-      const today_day = now.getDate();
 
-      const solidColor = isExpense ? 'rgba(99,102,241,0.95)' : 'rgba(16,185,129,0.95)';
-      const fadedColor = isExpense ? 'rgba(99,102,241,0.4)'  : 'rgba(16,185,129,0.4)';
-      const hoverColor = isExpense ? 'rgba(99,102,241,1)'    : 'rgba(16,185,129,1)';
-
-      const bgColors    = labels.map(d => d === today_day ? solidColor : fadedColor);
-      const hoverColors = labels.map(() => hoverColor);
+      // Обновить итоги под графиком
+      const totalIncome  = incomeTotals.reduce((s, v) => s + v, 0);
+      const totalExpense = expenseTotals.reduce((s, v) => s + v, 0);
+      const balance = totalIncome - totalExpense;
+      document.getElementById('chart-sum-income').textContent  = fmt(totalIncome);
+      document.getElementById('chart-sum-expense').textContent = fmt(totalExpense);
+      const balEl = document.getElementById('chart-sum-balance');
+      balEl.textContent = (balance >= 0 ? '+' : '−') + fmt(Math.abs(balance));
+      balEl.style.color = balance >= 0 ? 'var(--green)' : 'var(--red)';
 
       const canvas = document.getElementById('daily-chart');
+      const monthLabel = now.toLocaleString('ru-RU', { month: 'long' }); // used in tooltip
+
+      // Уничтожить зависший экземпляр если canvas отсоединён от DOM
+      if (dailyChart && !canvas.isConnected) {
+        dailyChart.destroy();
+        dailyChart = null;
+      }
 
       if (dailyChart) {
-        dailyChart.data.labels                               = labels;
-        dailyChart.data.datasets[0].data                    = dayTotals;
-        dailyChart.data.datasets[0].label                   = isExpense ? 'Расходы' : 'Доходы';
-        dailyChart.data.datasets[0].backgroundColor         = bgColors;
-        dailyChart.data.datasets[0].hoverBackgroundColor    = hoverColors;
-        dailyChart.update();
+        dailyChart.data.labels = labels;
+        dailyChart.data.datasets[0].data = incomeTotals;
+        dailyChart.data.datasets[1].data = expenseTotals;
+        dailyChart.update('none');   // без анимации → нет накопления кадров
         return;
       }
 
-      dailyChart = new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: isExpense ? 'Расходы' : 'Доходы',
-            data: dayTotals,
-            backgroundColor: bgColors,
-            hoverBackgroundColor: hoverColors,
-            borderRadius: 3,
-            borderSkipped: false,
-            barThickness: 6,
-          }]
+      const datasets = [
+        {
+          label: 'Доходы',
+          data: incomeTotals,
+          borderColor: 'rgba(16,185,129,0.9)',
+          backgroundColor: gradientGreen,
+          borderWidth: 2, tension: 0.4, fill: true,
+          pointRadius: 0, pointHoverRadius: 5,
+          pointHoverBackgroundColor: 'rgba(16,185,129,1)',
+          pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2,
         },
+        {
+          label: 'Расходы',
+          data: expenseTotals,
+          borderColor: 'rgba(99,102,241,0.9)',
+          backgroundColor: gradientPrimary,
+          borderWidth: 2, tension: 0.4, fill: true,
+          pointRadius: 0, pointHoverRadius: 5,
+          pointHoverBackgroundColor: 'rgba(99,102,241,1)',
+          pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2,
+        }
+      ];
+
+      dailyChart = new Chart(canvas, {
+        type: 'line',
+        data: { labels, datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          animation: { duration: 600, easing: 'easeInOutQuart' },
+          interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
-                title: ctx => `${ctx[0].label} ${now.toLocaleString('ru-RU', { month: 'long' })}`,
-                label: ctx => ctx.parsed.y > 0 ? ' ' + fmt(ctx.parsed.y) : ' —'
+                title: ctx => ctx.length ? `${ctx[0].label} ${monthLabel}` : '',
+                label: ctx => {
+                  if (ctx.parsed.y <= 0) return null;
+                  return (ctx.dataset.label === 'Доходы' ? '↑ ' : '↓ ') + fmt(ctx.parsed.y);
+                }
               },
-              backgroundColor: isDark ? '#1a1d2e' : '#1a202c',
-              titleColor:       isDark ? '#6b7280' : '#a0aec0',
-              bodyColor: '#fff',
-              padding: 10,
-              cornerRadius: 8,
+              filter: item => item.parsed.y > 0,
+              backgroundColor: isDark ? '#1e2130' : '#fff',
+              titleColor: isDark ? '#9ca3af' : '#6b7280',
+              bodyColor: isDark ? '#f1f5f9' : '#1a202c',
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+              borderWidth: 1, padding: 12, cornerRadius: 10,
             }
           },
           scales: {
@@ -2141,29 +2647,29 @@
                 color: isDark ? '#6b7280' : '#718096',
                 font: { family: "'Manrope', sans-serif", size: 11 },
                 maxRotation: 0,
-                callback: (_, i) => (i + 1) % 5 === 1 || (i + 1) === days ? i + 1 : ''
+                callback: (_, i) => {
+                  const d = i + 1;
+                  if (d === 1 || d === days) return d;
+                  if (d % 5 === 0 && !(d === 30 && days === 31)) return d;
+                  return '';
+                }
               }
             },
             y: {
               min: 0,
               suggestedMax: 10,
-              grid: {
-                color: isDark ? 'rgba(255,255,255,0.06)' : '#edf2f7',
-                lineWidth: 1,
-              },
-              border: { display: false, dash: [4, 4] },
+              grid: { color: isDark ? 'rgba(255,255,255,0.06)' : '#edf2f7', lineWidth: 1 },
+              border: { display: false },
               ticks: {
                 color: isDark ? '#6b7280' : '#718096',
                 font: { family: "'Manrope', sans-serif", size: 11 },
                 callback: v => v === 0 ? '0' : (v >= 1000 ? (v / 1000).toFixed(0) + 'к' : v)
-              },
+              }
             }
           }
         }
       });
 
-      // Принудительный resize после создания — исправляет 0×0 размеры на мобильном
-      requestAnimationFrame(() => { if (dailyChart) dailyChart.resize(); });
     }
 
     // ─── Тема ────────────────────────────────────────────────────────────────
@@ -2172,8 +2678,20 @@
       document.body.classList.toggle('light', light);
       document.getElementById('theme-toggle').textContent = light ? '🌙' : '☀️';
       document.querySelector('meta[name="color-scheme"]').content = light ? 'light dark' : 'dark light';
-      if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
-      renderDailyChart();
+      if (dailyChart) {
+        const isDark = !light;
+        const o = dailyChart.options;
+        o.plugins.tooltip.backgroundColor = isDark ? '#1e2130' : '#fff';
+        o.plugins.tooltip.titleColor       = isDark ? '#9ca3af' : '#6b7280';
+        o.plugins.tooltip.bodyColor        = isDark ? '#f1f5f9' : '#1a202c';
+        o.plugins.tooltip.borderColor      = isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0';
+        o.scales.x.ticks.color             = isDark ? '#6b7280' : '#718096';
+        o.scales.y.ticks.color             = isDark ? '#6b7280' : '#718096';
+        o.scales.y.grid.color              = isDark ? 'rgba(255,255,255,0.06)' : '#edf2f7';
+        dailyChart.update('none');
+      } else {
+        renderDailyChart();
+      }
     }
 
     function toggleTheme() {
@@ -2324,27 +2842,66 @@
       renderReport();
     }
 
-    function buildCatHtml(txList, isIncome) {
-      if (txList.length === 0)
-        return '<p style="font-size:0.85rem;color:var(--text-gray)">Нет данных за период</p>';
+    function buildCatMap(txList) {
       const map = {};
       txList.forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
-      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
-      const max    = sorted[0][1];
+      return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    }
+
+    function buildReportDonut(canvasId, txList, isIncome, chartRef) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return null;
+      if (chartRef) { chartRef.destroy(); }
+
+      const sorted = buildCatMap(txList);
       const total  = txList.reduce((s, t) => s + t.amount, 0);
-      return sorted.map(([cat, sum]) => {
-        const pct    = total > 0 ? Math.round(sum / total * 100) : 0;
-        const barCls = isIncome ? 'cat-bar income' : 'cat-bar';
-        return `
-          <div class="cat-row">
-            <div>
-              <div class="cat-label">${escHtml(catLabel(cat))}</div>
-              <div class="cat-bar-wrap">
-                <div class="${barCls}" style="width:${Math.round(sum/max*100)}%"></div>
-              </div>
-            </div>
-            <div class="cat-amount">${fmt(sum)} <span style="font-weight:400;color:var(--text-gray)">(${pct}%)</span></div>
-          </div>`;
+      const isDark = !document.body.classList.contains('light');
+
+      const labels = sorted.map(([cat]) => catLabel(cat));
+      const data   = sorted.map(([, sum]) => sum);
+      const colors = sorted.map((_, i) => REPORT_PALETTE[i % REPORT_PALETTE.length]);
+
+      return new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2,
+          borderColor: isDark ? '#1a1d2e' : '#ffffff', hoverOffset: 6 }] },
+        options: {
+          cutout: '68%',
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 500 },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+                  return ` ${fmt(ctx.parsed)} (${pct}%)`;
+                }
+              },
+              backgroundColor: isDark ? '#1e2130' : '#fff',
+              titleColor: isDark ? '#9ca3af' : '#6b7280',
+              bodyColor: isDark ? '#f1f5f9' : '#1a202c',
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+              borderWidth: 1, padding: 10, cornerRadius: 8
+            }
+          }
+        }
+      });
+    }
+
+    function buildLegendHtml(txList, total) {
+      const sorted = buildCatMap(txList);
+      if (sorted.length === 0) return '';
+      return sorted.map(([cat, sum], i) => {
+        const pct = total > 0 ? Math.round(sum / total * 100) : 0;
+        const color = REPORT_PALETTE[i % REPORT_PALETTE.length];
+        return `<div class="report-legend-item">
+          <div class="report-legend-dot" style="background:${color}"></div>
+          <span class="report-legend-name">${escHtml(catLabel(cat))}</span>
+          <span class="report-legend-val">${fmt(sum)}</span>
+          <span class="report-legend-pct">${pct}%</span>
+        </div>`;
       }).join('');
     }
 
@@ -2362,6 +2919,9 @@
       const balSign      = balance >= 0 ? '+' : '−';
       const balColor     = balance >= 0 ? 'var(--green)' : 'var(--red)';
 
+      const expNoData = expense.length === 0;
+      const incNoData = income.length === 0;
+
       document.getElementById('report-content').innerHTML = `
         <div class="report-summary">
           <div class="report-stat">
@@ -2378,77 +2938,65 @@
           </div>
         </div>
         <div class="report-grid">
-          <div>
+          <div class="report-donut-section">
             <div class="report-col-title">Расходы по категориям</div>
-            ${buildCatHtml(expense, false)}
+            ${expNoData
+              ? '<div class="report-no-data">Нет данных за период</div>'
+              : `<div class="report-donut-wrap">
+                  <canvas id="report-exp-chart"></canvas>
+                  <div class="report-donut-center">
+                    <div class="report-donut-center-val expense-val">${fmt(totalExpense)}</div>
+                    <div class="report-donut-center-lbl">расходы</div>
+                  </div>
+                </div>
+                <div class="report-legend">${buildLegendHtml(expense, totalExpense)}</div>`
+            }
           </div>
-          <div>
+          <div class="report-donut-section">
             <div class="report-col-title">Доходы по категориям</div>
-            ${buildCatHtml(income, true)}
+            ${incNoData
+              ? '<div class="report-no-data">Нет данных за период</div>'
+              : `<div class="report-donut-wrap">
+                  <canvas id="report-inc-chart"></canvas>
+                  <div class="report-donut-center">
+                    <div class="report-donut-center-val income-val">${fmt(totalIncome)}</div>
+                    <div class="report-donut-center-lbl">доходы</div>
+                  </div>
+                </div>
+                <div class="report-legend">${buildLegendHtml(income, totalIncome)}</div>`
+            }
           </div>
         </div>`;
+
+      if (!expNoData) {
+        reportExpChart = buildReportDonut('report-exp-chart', expense, false, reportExpChart);
+      } else { reportExpChart = null; }
+
+      if (!incNoData) {
+        reportIncChart = buildReportDonut('report-inc-chart', income, true, reportIncChart);
+      } else { reportIncChart = null; }
     }
 
-    function copyReport() {
-      const { startStr, endStr, label } = getPeriodRange(reportPeriod);
-      const txs     = transactions.filter(t => t.date >= startStr && t.date <= endStr);
-      const income  = txs.filter(t => t.type === 'income');
-      const expense = txs.filter(t => t.type === 'expense');
+    function exportPDF() {
+      window.print();
+    }
 
-      const totalIncome  = income.reduce((s, t)  => s + t.amount, 0);
-      const totalExpense = expense.reduce((s, t) => s + t.amount, 0);
-      const balance      = totalIncome - totalExpense;
-
-      const aggregateCats = list => {
-        const map = {};
-        list.forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
-        return Object.entries(map).sort((a, b) => b[1] - a[1]);
-      };
-      const fmtCats = (groups, total) =>
-        groups.length === 0 ? '  —' :
-        groups.map(([cat, sum]) => {
-          const pct = total > 0 ? Math.round(sum / total * 100) : 0;
-          return `  ${cat}: ${fmt(sum)} (${pct}%)`;
-        }).join('\n');
-
-      const expGroups = aggregateCats(expense);
-      const incGroups = aggregateCats(income);
-
-      const lines = [
-        `📊 Отчёт: ${label}`,
-        '',
-        `Доходы:  ${fmt(totalIncome)}`,
-        `Расходы: ${fmt(totalExpense)}`,
-        `Баланс:  ${balance >= 0 ? '+' : '−'}${fmt(Math.abs(balance))}`,
-        '',
-        'Расходы по категориям:',
-        fmtCats(expGroups, totalExpense),
-        '',
-        'Доходы по категориям:',
-        fmtCats(incGroups, totalIncome),
-      ].join('\n');
-
-      const btn = document.getElementById('copy-report-btn');
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(lines).then(() => {
-          btn.textContent = '✅';
-          setTimeout(() => { btn.textContent = '📋'; }, 1500);
-        });
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = lines; ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); } catch(e) {}
-        document.body.removeChild(ta);
-        btn.textContent = '✅';
-        setTimeout(() => { btn.textContent = '📋'; }, 1500);
-      }
+    function exportCSV() {
+      const rows = [['Дата','Тип','Категория','Сумма','Комментарий']];
+      transactions.forEach(t => rows.push([t.date, t.type, t.category, t.amount, t.comment||'']));
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const a = Object.assign(document.createElement('a'), {
+        href: 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv),
+        download: `finvibe-${new Date().toISOString().slice(0,10)}.csv`
+      });
+      a.click();
     }
 
     // ─── История ─────────────────────────────────────────────────────────────
 
     let currentView = 'main';
     let histPeriod  = 'all';
+    let histType    = 'all';
 
     function switchView(view) {
       currentView = view;
@@ -2462,10 +3010,32 @@
       if (view === 'history') renderHistory();
     }
 
+    function onHistSearchInput() {
+      const val = document.getElementById('hist-search').value;
+      const btn = document.getElementById('hist-search-clear');
+      if (btn) btn.style.display = val ? 'block' : 'none';
+      renderHistory();
+    }
+
+    function clearHistSearch() {
+      document.getElementById('hist-search').value = '';
+      const btn = document.getElementById('hist-search-clear');
+      if (btn) btn.style.display = 'none';
+      renderHistory();
+    }
+
     function setHistPeriod(p) {
       histPeriod = p;
       ['all', 'month', 'week'].forEach(x =>
         document.getElementById('hist-btn-' + x).classList.toggle('active', x === p)
+      );
+      renderHistory();
+    }
+
+    function setHistType(t) {
+      histType = t;
+      ['all', 'income', 'expense'].forEach(x =>
+        document.getElementById('hist-type-' + x).classList.toggle('active', x === t)
       );
       renderHistory();
     }
@@ -2504,7 +3074,7 @@
         const localStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
         endStr = '9999-99-99';
         if (histPeriod === 'week') {
-          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
           startStr = localStr(d);
         } else {
           const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -2512,11 +3082,38 @@
         }
       }
 
-      const filtered = transactions.filter(t => t.date >= startStr && t.date <= endStr);
+      const searchQ = (document.getElementById('hist-search')?.value || '').trim().toLowerCase();
+      const filtered = transactions
+        .filter(t => t.date >= startStr && t.date <= endStr)
+        .filter(t => histType === 'all' || t.type === histType)
+        .filter(t => !searchQ ||
+          (t.category || '').toLowerCase().includes(searchQ) ||
+          (t.comment  || '').toLowerCase().includes(searchQ) ||
+          String(t.amount).includes(searchQ));
 
       if (filtered.length === 0) {
         document.getElementById('history-content').innerHTML =
-          '<p style="font-size:0.88rem;color:var(--text-gray);padding:20px 0 8px">Нет транзакций за период</p>';
+          `<p style="font-size:0.88rem;color:var(--text-gray);padding:20px 0 8px">${searchQ ? 'Ничего не найдено' : 'Нет транзакций за период'}</p>`;
+        return;
+      }
+
+      // При активном поиске — плоский список без группировки
+      if (searchQ) {
+        const sorted = filtered.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+        document.getElementById('history-content').innerHTML = `
+          <div style="margin-top:8px">
+            ${sorted.map(t => `
+              <div class="hist-tx-row">
+                <span class="hist-tx-date">${fmtDate(t.date)}</span>
+                <span>
+                  <span class="hist-tx-cat">${escHtml(catLabel(t.category))}</span>
+                  ${t.comment ? `<span class="hist-tx-cmt"> · ${escHtml(t.comment)}</span>` : ''}
+                </span>
+                <span class="hist-tx-amount ${t.type}">${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
         return;
       }
 
@@ -2765,14 +3362,16 @@
       });
 
       pendingScanTxs.forEach(tx => {
-        transactions.unshift({
-          id: Date.now() + Math.random(),
+        const newTx = {
+          id: Date.now() + Math.floor(Math.random() * 10000),
           amount: tx.amount,
           type: tx.type,
           category: tx.category,
           date: tx.date,
           comment: tx.description
-        });
+        };
+        transactions.unshift(newTx);
+        firestoreSaveTx(newTx);
       });
 
       saveData(transactions);
@@ -2821,6 +3420,9 @@
     document.getElementById('tx-modal').addEventListener('click', function(e) {
       if (e.target === this) closeTxModal();
     });
+    document.getElementById('edit-tx-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeEditTxModal();
+    });
 
     // Дата по умолчанию — сегодня
     document.getElementById('tx-date').value = today();
@@ -2828,6 +3430,12 @@
     buildCategorySelect();
     buildLimitCategorySelect();
     applyTheme(localStorage.getItem('budget_theme') === 'light');
+
+    // Глобальный listener для закрытия кастомных селектов (один на всё приложение)
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.csel-list.open').forEach(el => el.classList.remove('open'));
+      document.querySelectorAll('.csel-trigger.open').forEach(el => el.classList.remove('open'));
+    });
 
     // Scan: upload zone events
     document.getElementById('scan-upload-zone').addEventListener('click', function() {
@@ -2842,17 +3450,35 @@
     scanZone.addEventListener('drop', function(e) { e.preventDefault(); scanZone.classList.remove('dragover'); handleScanFile(e.dataTransfer.files[0]); });
     initApiKeyUI();
 
-    showAuthScreen(true);
-    auth.onAuthStateChanged(async function(user) {
-      if (user) {
-        currentUser = user;
-        showApp(user);
+    (async function initAuth() {
+      var tgWebApp = window.Telegram?.WebApp;
+      var isTelegram = tgWebApp && tgWebApp.platform && tgWebApp.platform !== 'unknown';
+      if (isTelegram) {
+        // Открыто в Telegram — используем Telegram context
+        tgWebApp.ready();
+        var tgUser = tgWebApp.initDataUnsafe?.user;
+        currentUser = {
+          uid: tgUser ? String(tgUser.id) : ('tg_' + tgWebApp.initData.slice(0, 16)),
+          displayName: tgUser?.first_name || 'Пользователь',
+          photoURL: tgUser?.photo_url || null
+        };
+        showApp(currentUser);
         await loadUserData();
       } else {
-        currentUser = null;
-        showAuthScreen(false);
+        // Открыто в браузере — Firebase Auth / Google Sign-In
+        showAuthScreen(true);
+        auth.onAuthStateChanged(async function(user) {
+          if (user) {
+            currentUser = user;
+            showApp(user);
+            await loadUserData();
+          } else {
+            currentUser = null;
+            showAuthScreen(false);
+          }
+        });
       }
-    });
+    })();
   </script>
 </body>
 </html>
