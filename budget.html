@@ -282,17 +282,41 @@
     }
     .csel-opt:hover { background: rgba(255,255,255,0.07); }
     .csel-opt.selected { color: var(--primary); }
-    .csel-opt-del {
-      background: none; border: none; cursor: pointer; color: var(--text-gray);
-      font-size: 0.75rem; padding: 2px 5px; border-radius: 3px; line-height: 1;
-      opacity: 0.5; flex-shrink: 0;
-    }
-    .csel-opt-del:hover { opacity: 1; color: var(--red); background: rgba(239,68,68,0.12); }
-    body.light .csel-opt-del:hover { background: #fee2e2; }
     body.light .csel-trigger { background: #f8fafc; border-color: #e2e8f0; }
     body.light .csel-trigger.open { background: #fff; border-color: var(--primary); }
     body.light .csel-list { background: #fff; border-color: #e2e8f0; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
     body.light .csel-opt:hover { background: rgba(0,0,0,0.04); }
+
+    /* Кастомная категория в дропдауне — с кнопкой удаления */
+    .csel-opt.csel-opt-custom {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .csel-del-btn {
+      background: none; border: none; color: var(--text-gray); cursor: pointer;
+      font-size: 1rem; padding: 0 4px; line-height: 1; opacity: 0.5;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    .csel-del-btn:hover { opacity: 1; color: #ef4444; }
+
+    /* Строка добавления новой категории внутри дропдауна */
+    .csel-add-row {
+      display: none; padding: 8px; gap: 8px; border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .csel-add-row.visible { display: flex; }
+    .csel-add-row input {
+      flex: 1; padding: 7px 10px; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px; background: rgba(255,255,255,0.04); color: var(--text-dark);
+      font-family: var(--font); font-size: 0.9rem;
+    }
+    .csel-add-row input:focus { outline: none; border-color: var(--primary); }
+    .csel-add-row button {
+      padding: 7px 14px; background: var(--primary); color: #fff; border: none;
+      border-radius: 6px; cursor: pointer; font-family: var(--font); font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    .csel-add-row button:hover { background: var(--primary-hover); }
+    body.light .csel-add-row { border-top-color: #e2e8f0; }
+    body.light .csel-add-row input { background: #f8fafc; border-color: #e2e8f0; }
     body.light .csel-search { background: #f0f4f8; border-color: #e2e8f0; }
     body.light .csel-search:focus { background: #fff; }
 
@@ -332,7 +356,6 @@
     body.light .type-toggle label:first-of-type { border-right-color: #e2e8f0; }
 
     /* Поле своей категории — скрыто по умолчанию */
-    #custom-category-wrap  { display: none; margin-top: 8px; }
     #limit-new-cat-wrap    { display: none; margin-top: 8px; }
 
     /* Кнопка добавить */
@@ -1569,12 +1592,6 @@
           <div class="form-group">
             <label for="category">Категория</label>
             <select id="category"></select>
-            <div id="custom-category-wrap">
-              <div class="cat-manage-row" style="margin-bottom:0;margin-top:8px">
-                <input type="text" id="custom-category" placeholder="Название категории">
-                <button type="button" class="btn-primary" onclick="addInlineCategory()">Добавить</button>
-              </div>
-            </div>
           </div>
 
           <div class="form-group">
@@ -1590,6 +1607,7 @@
           <button type="submit" class="btn-primary">Добавить</button>
         </form>
       </div>
+
 
       <!-- Аналитика -->
       <div class="card">
@@ -2039,55 +2057,103 @@
       searchInput.addEventListener('input', () => filterOpts(searchInput.value));
 
       const closeList = () => {
-        list.classList.remove('open');
-        trigger.classList.remove('open');
+        list.classList.remove('open'); trigger.classList.remove('open');
         searchInput.value = '';
         filterOpts('');
+        const addRow = list.querySelector('.csel-add-row');
+        if (addRow) addRow.classList.remove('visible');
       };
 
       Array.from(nativeSel.options).forEach((opt, i) => {
         const item = document.createElement('div');
-        item.className = 'csel-opt' + (i === nativeSel.selectedIndex ? ' selected' : '');
+        const isCustom = opt.dataset.custom === 'true';
+        const isAddNew = opt.value === '__custom__';
+        item.className = 'csel-opt' + (i === nativeSel.selectedIndex ? ' selected' : '') + (isCustom ? ' csel-opt-custom' : '');
         item.dataset.value = opt.value;
         item.dataset.label = opt.text;
         item.addEventListener('mousedown', e => { e.preventDefault(); });
-        item.addEventListener('click', () => {
-          nativeSel.value = opt.value;
-          trigger.textContent = opt.text;
-          list.querySelectorAll('.csel-opt').forEach(el => el.classList.remove('selected'));
-          item.classList.add('selected');
-          closeList();
-          nativeSel.dispatchEvent(new Event('change'));
-        });
-        if (opt.dataset.custom) {
-          item.style.cssText = 'display:flex;align-items:center;';
-          const nameSpan = document.createElement('span');
-          nameSpan.style.flex = '1';
-          nameSpan.textContent = opt.text;
-          item.appendChild(nameSpan);
+
+        if (isCustom) {
+          const textSpan = document.createElement('span');
+          textSpan.textContent = opt.text;
+          item.appendChild(textSpan);
           const delBtn = document.createElement('button');
           delBtn.type = 'button';
-          delBtn.className = 'csel-opt-del';
+          delBtn.className = 'csel-del-btn';
           delBtn.textContent = '✕';
           delBtn.title = 'Удалить категорию';
-          delBtn.addEventListener('mousedown', e => e.stopPropagation());
+          delBtn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
           delBtn.addEventListener('click', e => {
             e.stopPropagation();
-            const type = document.querySelector('input[name="type"]:checked').value;
-            const idx = customCats[type].indexOf(opt.value);
-            if (idx !== -1) {
-              const count = transactions.filter(t => t.category === opt.value).length;
-              if (count > 0 && !confirm(`Удалить категорию «${opt.value}»?\n${count} транзакций останутся с этой категорией.`)) return;
-              customCats[type].splice(idx, 1); saveCustomCats(); buildCategorySelect();
-            }
-            closeList();
+            deleteCustomCategory(opt.dataset.catType, opt.value);
           });
           item.appendChild(delBtn);
         } else {
           item.textContent = opt.text;
         }
+
+        if (isAddNew) {
+          item.addEventListener('click', () => {
+            const addRow = list.querySelector('.csel-add-row');
+            if (addRow) {
+              addRow.classList.add('visible');
+              const inp = addRow.querySelector('input');
+              if (inp) { inp.value = ''; inp.focus(); }
+            }
+          });
+        } else {
+          item.addEventListener('click', () => {
+            nativeSel.value = opt.value;
+            trigger.textContent = isCustom ? opt.text : opt.text;
+            list.querySelectorAll('.csel-opt').forEach(el => el.classList.remove('selected'));
+            item.classList.add('selected');
+            closeList();
+            nativeSel.dispatchEvent(new Event('change'));
+          });
+        }
         list.appendChild(item);
       });
+
+      // Inline add row (for category selects with __custom__ option)
+      const hasCustomOpt = nativeSel.querySelector('option[value="__custom__"]');
+      if (hasCustomOpt) {
+        const addRow = document.createElement('div');
+        addRow.className = 'csel-add-row';
+        const addInput = document.createElement('input');
+        addInput.type = 'text';
+        addInput.placeholder = 'Новая категория';
+        addInput.addEventListener('mousedown', e => { e.stopPropagation(); });
+        addInput.addEventListener('click', e => { e.stopPropagation(); });
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.textContent = 'Добавить';
+
+        const doAdd = () => {
+          const name = addInput.value.trim();
+          if (!name) return;
+          const type = document.querySelector('input[name="type"]:checked').value;
+          if (CATEGORIES[type].includes(name) || customCats[type].includes(name)) {
+            addInput.value = '';
+            return;
+          }
+          customCats[type].push(name);
+          saveCustomCats();
+          addInput.value = '';
+          closeList();
+          buildCategorySelect(name);
+        };
+
+        addBtn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+        addBtn.addEventListener('click', e => { e.stopPropagation(); doAdd(); });
+        addInput.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { e.preventDefault(); doAdd(); }
+          if (e.key === 'Escape') { closeList(); }
+        });
+
+        addRow.appendChild(addInput);
+        addRow.appendChild(addBtn);
+        list.appendChild(addRow);
+      }
 
       trigger.addEventListener('click', e => {
         e.stopPropagation();
@@ -2096,12 +2162,10 @@
           l.classList.remove('open');
           l.previousElementSibling && l.previousElementSibling.classList.remove('open');
         });
-        if (!wasOpen) {
-          list.classList.add('open');
-          trigger.classList.add('open');
-          setTimeout(() => searchInput.focus(), 50);
-        }
+        if (!wasOpen) { list.classList.add('open'); trigger.classList.add('open'); }
       });
+
+      document.addEventListener('click', closeList);
 
       wrap.appendChild(trigger);
       wrap.appendChild(list);
@@ -2110,7 +2174,7 @@
 
     // ─── Категории в форме ───────────────────────────────────────────────────
 
-    function buildCategorySelect() {
+    function buildCategorySelect(autoSelectCat) {
       const type  = document.querySelector('input[name="type"]:checked').value;
       const sel   = document.getElementById('category');
       const cats  = [...CATEGORIES[type], ...customCats[type]];
@@ -2119,7 +2183,10 @@
       cats.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c; opt.textContent = catLabel(c);
-        if (customCats[type].includes(c)) opt.dataset.custom = '1';
+        if (customCats[type].includes(c)) {
+          opt.dataset.custom = 'true';
+          opt.dataset.catType = type;
+        }
         sel.appendChild(opt);
       });
 
@@ -2127,13 +2194,8 @@
       custom.value = '__custom__'; custom.textContent = '✎ Своя...';
       sel.appendChild(custom);
 
+      if (autoSelectCat) sel.value = autoSelectCat;
       buildCustomSelect(sel);
-      onCategoryChange();
-    }
-
-    function onCategoryChange() {
-      const wrap = document.getElementById('custom-category-wrap');
-      wrap.style.display = document.getElementById('category').value === '__custom__' ? 'block' : 'none';
     }
 
     // ─── Добавление транзакции ───────────────────────────────────────────────
@@ -2145,10 +2207,7 @@
       if (!amount || amount <= 0) return;
 
       const type     = document.querySelector('input[name="type"]:checked').value;
-      const catSel   = document.getElementById('category').value;
-      const category = catSel === '__custom__'
-        ? (document.getElementById('custom-category').value.trim() || 'Прочее')
-        : catSel;
+      const category = document.getElementById('category').value || 'Прочее';
       const date    = document.getElementById('tx-date').value;
       const comment = document.getElementById('comment').value.trim();
 
@@ -2732,29 +2791,10 @@
       buildLimitCategorySelect();
     }
 
-    function addInlineCategory() {
-      const type  = document.querySelector('input[name="type"]:checked').value;
-      const input = document.getElementById('custom-category');
-      const name  = input.value.trim();
-      if (!name) return;
-      if (CATEGORIES[type].includes(name) || customCats[type].includes(name)) {
-        input.value = ''; return;
-      }
-      customCats[type].push(name);
+    function deleteCustomCategory(type, name) {
+      customCats[type] = customCats[type].filter(c => c !== name);
       saveCustomCats();
-      input.value = '';
-      buildCategorySelect();
-      // Автовыбор новой категории
-      const sel = document.getElementById('category');
-      sel.value = name;
-      const cselWrap = sel.parentNode.querySelector('.csel-wrap');
-      if (cselWrap) {
-        cselWrap.querySelector('.csel-trigger').textContent = catLabel(name);
-        cselWrap.querySelectorAll('.csel-opt').forEach(o => {
-          o.classList.toggle('selected', o.dataset.value === name);
-        });
-      }
-      document.getElementById('custom-category-wrap').style.display = 'none';
+      refreshCategoryUI();
     }
 
     // ─── Отчёт ───────────────────────────────────────────────────────────────
@@ -3357,18 +3397,10 @@
       r.addEventListener('change', buildCategorySelect)
     );
 
-    // Выбор своей категории
-    document.getElementById('category').addEventListener('change', onCategoryChange);
-
     // Лимиты: выбор «Добавить категорию»
     document.getElementById('limit-category').addEventListener('change', onLimitCategoryChange);
     document.getElementById('limit-new-cat-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); confirmLimitNewCategory(); }
-    });
-
-    // Enter в поле инлайн-добавления категории
-    document.getElementById('custom-category').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); addInlineCategory(); }
     });
 
     // Перенести форму в слот модалки
