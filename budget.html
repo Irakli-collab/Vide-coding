@@ -453,14 +453,29 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 300px;
-      overflow-y: auto;
       padding-right: 4px;
     }
 
-    .tx-list::-webkit-scrollbar { width: 4px; }
-    .tx-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
-    body.light .tx-list::-webkit-scrollbar-thumb { background: #cbd5e0; }
+    .tx-list .tx-item.tx-hidden { display: none; }
+
+    .btn-show-all {
+      display: none;
+      width: 100%;
+      margin-top: 12px;
+      padding: 11px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-dark);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-show-all:hover { background: rgba(255,255,255,0.1); }
+    body.light .btn-show-all { background: var(--bg); border-color: #e2e8f0; color: var(--text-light); }
+    body.light .btn-show-all:hover { background: #e2e8f0; }
 
     .tx-item {
       display: grid;
@@ -1639,8 +1654,9 @@
     <div style="display:flex; flex-direction:column; gap:24px;">
 
       <div class="card">
-        <h2>Транзакции</h2>
+        <h2 id="tx-heading">Транзакции</h2>
         <ul class="tx-list" id="tx-list"></ul>
+        <button class="btn-show-all" id="btn-show-all" onclick="toggleShowAllTx()">Показать все</button>
       </div>
 
       <div class="card">
@@ -2319,8 +2335,14 @@
 
     // ─── Рендер транзакций ───────────────────────────────────────────────────
 
+    let txShowAll = false;
+
     function renderTransactions() {
       const list = document.getElementById('tx-list');
+      const heading = document.getElementById('tx-heading');
+      const btnShowAll = document.getElementById('btn-show-all');
+
+      heading.textContent = `Транзакции (всего: ${transactions.length})`;
 
       if (transactions.length === 0) {
         list.innerHTML = `<li class="tx-empty">
@@ -2329,13 +2351,15 @@
           <span class="empty-subtitle">Добавьте первую транзакцию</span>
           <button class="empty-cta" onclick="openTxModal()">+ Добавить</button>
         </li>`;
+        btnShowAll.style.display = 'none';
         return;
       }
 
       const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      const TX_LIMIT = 10;
 
       list.innerHTML = sorted.map((t, i) => `
-        <li class="tx-item animate-in" id="tx-item-${t.id}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s; opacity:0">
+        <li class="tx-item animate-in${!txShowAll && i >= TX_LIMIT ? ' tx-hidden' : ''}" id="tx-item-${t.id}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s; opacity:0">
           <span class="tx-date">${fmtDate(t.date)}</span>
           <div class="tx-info">
             <span class="tx-category" id="cat-text-${t.id}">
@@ -2352,6 +2376,18 @@
           </div>
         </li>
       `).join('');
+
+      if (sorted.length > TX_LIMIT) {
+        btnShowAll.style.display = 'block';
+        btnShowAll.textContent = txShowAll ? 'Скрыть' : `Показать все (${sorted.length - TX_LIMIT} ещё)`;
+      } else {
+        btnShowAll.style.display = 'none';
+      }
+    }
+
+    function toggleShowAllTx() {
+      txShowAll = !txShowAll;
+      renderTransactions();
     }
 
     function escHtml(str) {
